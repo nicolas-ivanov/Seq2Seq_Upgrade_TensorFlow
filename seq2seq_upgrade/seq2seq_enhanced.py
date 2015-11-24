@@ -15,6 +15,8 @@ from tensorflow.models.rnn import linear
 from tensorflow.models.rnn import rnn
 from tensorflow.models.rnn import rnn_cell
 
+import cf
+
 def average_hidden_states(decoder_states):
   mean_decoder_states = np.mean(decoder_states)
   final_decoder_state = (0.5*decoder_states[-1])+0.5*mean_decoder_states
