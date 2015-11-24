@@ -1,9 +1,9 @@
 # Seq2Seq_Upgrade_TensorFlow
 Additional Sequence to Sequence Features for TensorFlow
 
-Hey Guys, TensorFlow is great, but as research in Seq2Seq progresses, I wanted to ensure that we all had access to the latest papers.
+Hey Guys, TensorFlow is great, but there are some seq2seq features that could be added. The goal is to add them as research in this field unfolds.
 
-That's why I created this additional python package. This is meant to work in conjunction with TensorFlow. Simply clone this and import as:
+That's why there's this additional python package. This is meant to work in conjunction with TensorFlow. Simply clone this and import as:
 
 ```python
 sys.path.insert(0, os.environ['HOME']) #add the dir that you cloned to
