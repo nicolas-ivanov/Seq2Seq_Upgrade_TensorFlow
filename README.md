@@ -32,7 +32,8 @@ Simply call in:
 ```python
 from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import seq2seq_enhanced as sse
 
-seq2seq_model = sse.embedding_attention_decoder_average_states(....)```
+seq2seq_model = sse.embedding_attention_decoder_average_states(....)
+```
 
 
 ##Different RNN Layers on different GPU's
@@ -45,8 +46,7 @@ For GPU 1,
 
 GRUCell_GPU1 instead of GRUCell, etc.
 
-```python
-      
+```python      
 from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import rnn_cell_enhanced```
 
 
@@ -55,7 +55,7 @@ second_layer = rnn_cell_enhanced.GRUCell_GPU1(size)
 cell = rnn_cell.MultiRNNCell(([first_layer]*(num_layers/2)) + ([second_layer]*(num_layers/2)))
 
 #notice that we put consecutive layers on the same gpu. Also notice that you need to use an even number of layers.
-'''
+```
 
 
 
