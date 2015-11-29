@@ -32,11 +32,11 @@ Simply call in:
 ```python
 from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import seq2seq_enhanced as sse
 
-seq2seq_model = sse.embedding_attention_decoder_average_states(....)
+seq2seq_model = sse.embedding_attention_seq2seq(....,average_states = True)
 ```
 
 
-##Different RNN Layers on different GPU's
+##Different RNN Layers on Multiple GPU's
 
 To call in GRU for gpu 0, simply call in the class
 
@@ -49,7 +49,7 @@ GRUCell_GPU1 instead of GRUCell, etc.
 ```python      
 from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import rnn_cell_enhanced```
 
-
+#assuming you're using two gpu's
 first_layer = rnn_cell_enhanced.GRUCell_GPU0(size) #this is saying for gpu 0
 second_layer = rnn_cell_enhanced.GRUCell_GPU1(size)
 cell = rnn_cell.MultiRNNCell(([first_layer]*(num_layers/2)) + ([second_layer]*(num_layers/2)))

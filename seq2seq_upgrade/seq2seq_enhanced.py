@@ -20,6 +20,7 @@ import cf
 def average_hidden_states(decoder_states):
   mean_decoder_states = np.mean(decoder_states)
   final_decoder_state = (0.5*decoder_states[-1])+0.5*mean_decoder_states
+  return final_decoder_state
 
 def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
                       output_size=None, num_heads=1, loop_function=None,
@@ -410,7 +411,7 @@ def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
                                 num_encoder_symbols, num_decoder_symbols,
                                 num_heads=1, output_projection=None,
                                 feed_previous=False, dtype=tf.float32,
-                                scope=None):
+                                scope=None, average_states = False):
   """Embedding sequence-to-sequence model with attention.
 
   This model first embeds encoder_inputs by a newly created embedding (of shape
@@ -464,24 +465,53 @@ def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
       cell = rnn_cell.OutputProjectionWrapper(cell, num_decoder_symbols)
       output_size = num_decoder_symbols
 
-    if isinstance(feed_previous, bool):
-      return embedding_attention_decoder(
+    if isinstance(feed_previous, bool): #this is saying you are decoding, feed-forward network
+      '''nick, right here, you will find a broad if statement'''
+
+      if average_states:
+        return embedding_attention_decoder_average_states(
           decoder_inputs, encoder_states[-1], attention_states, cell,
           num_decoder_symbols, num_heads, output_size, output_projection,
           feed_previous)
-    else:  # If feed_previous is a Tensor, we construct 2 graphs and use cond.
-      outputs1, states1 = embedding_attention_decoder(
+      else:
+        return embedding_attention_decoder(
           decoder_inputs, encoder_states[-1], attention_states, cell,
-          num_decoder_symbols, num_heads, output_size, output_projection, True)
-      tf.get_variable_scope().reuse_variables()
-      outputs2, states2 = embedding_attention_decoder(
-          decoder_inputs, encoder_states[-1], attention_states, cell,
-          num_decoder_symbols, num_heads, output_size, output_projection, False)
+          num_decoder_symbols, num_heads, output_size, output_projection,
+          feed_previous)
 
-      outputs = tf.control_flow_ops.cond(feed_previous,
-                                         lambda: outputs1, lambda: outputs2)
-      states = tf.control_flow_ops.cond(feed_previous,
+    else:  # If feed_previous is a Tensor, we construct 2 graphs and use cond.
+      '''nick, right here, you modify by doing a broad if statement'''
+
+      if average_states:
+        outputs1, states1 = embedding_attention_decoder_average_states(
+            decoder_inputs, encoder_states[-1], attention_states, cell,
+            num_decoder_symbols, num_heads, output_size, output_projection, True)
+        tf.get_variable_scope().reuse_variables()
+        outputs2, states2 = embedding_attention_decoder_average_states(
+            decoder_inputs, encoder_states[-1], attention_states, cell,
+            num_decoder_symbols, num_heads, output_size, output_projection, False)
+
+        outputs = tf.control_flow_ops.cond(feed_previous,
+                                           lambda: outputs1, lambda: outputs2)
+        states = tf.control_flow_ops.cond(feed_previous,
                                         lambda: states1, lambda: states2)
+
+        #where is the backprop? I don't know if its here or not. 
+
+      else:
+        outputs1, states1 = embedding_attention_decoder(
+            decoder_inputs, encoder_states[-1], attention_states, cell,
+            num_decoder_symbols, num_heads, output_size, output_projection, True)
+        tf.get_variable_scope().reuse_variables()
+        outputs2, states2 = embedding_attention_decoder(
+            decoder_inputs, encoder_states[-1], attention_states, cell,
+            num_decoder_symbols, num_heads, output_size, output_projection, False)
+
+        outputs = tf.control_flow_ops.cond(feed_previous,
+                                           lambda: outputs1, lambda: outputs2)
+        states = tf.control_flow_ops.cond(feed_previous,
+                                        lambda: states1, lambda: states2)
+
       return outputs, states
 
 
