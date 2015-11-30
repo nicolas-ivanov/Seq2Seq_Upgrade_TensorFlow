@@ -14,7 +14,7 @@ Main Features Include:
 
 - Averaging Hidden States During Decoding, Allows you to set ratio of last hidden state to mean hidden state
 - Different GRU's and LSTM's layers on different GPU's
-- GRU Mutant 1 from [this paper](http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf)
+- GRU Mutants from [Jozefowicz et al. paper](http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf)
 
 Currently Working On:
 - Curriculum Learning (In Progress)
@@ -66,9 +66,9 @@ cell = rnn_cell.MultiRNNCell(([first_layer]*(num_layers/2)) + ([second_layer]*(n
 ```
 
 
-##GRU Mutant 1 (from Jozefowicz et al.)
+##GRU Mutants (from Jozefowicz et al.)
 
-This mutant does better in some seq2seq tasks. Memory wise, it is the same as GRU, so you can fit more cells in your GPU.
+These mutants do better in some seq2seq tasks. Memory wise, they approximately the same as GRU.
 
 To use this simply:
 
@@ -77,5 +77,9 @@ from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import rnn_cell_enhanced```
 
 first_layer = rnn_cell_enhanced.JZS1Cell(size)
 ```
+Mutants are called in by:
 
+1. `rnn_cell_enhanced.JZS1Cell(size)`
+2. `rnn_cell_enhanced.JZS2Cell(size)`
+3. `rnn_cell_enhanced.JZS3Cell(size)`
 
