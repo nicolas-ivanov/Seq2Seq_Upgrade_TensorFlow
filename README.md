@@ -12,7 +12,7 @@ from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import seq2seq_enhanced as sse
 
 Main Features Include:
 
-- Averaging Hidden States During Decoding
+- Averaging Hidden States During Decoding, Allows you to set ratio of last hidden state to mean hidden state
 - Different GRU's and LSTM's layers on different GPU's
 - GRU Mutant 1 from [this paper](http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf)
 
@@ -35,15 +35,20 @@ Simply call in:
 ```python
 from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import seq2seq_enhanced as sse
 
-seq2seq_model = sse.embedding_attention_seq2seq(....,average_states = True)
+seq2seq_model = sse.embedding_attention_seq2seq(....,average_states = True, average_hidden_state_influence = 0.5)
 ```
+
+Note that `average_hidden_state_influence` should be any real number between 0 and 1. The higher the number, the higher the percentage that the inputted hidden state will be influenced by the average hidden state.
+
+For example, an `average_hidden_state_influence = .75` means 75% of the hidden state will be the average hidden state and the remainder 25% of the hidden state will be the *last* hidden state. This allows you to choose how much you want the inputted hidden state to be affected by the previous timestep. 
+
 
 
 ##Different RNN Layers on Multiple GPU's
 
 To call in GRU for gpu 0, simply call in the class
 
-GRUCell_GPU0 instead of GRUCell
+`rnn_cell_enhanced.GRUCell(size, gpu_number = 0)`
 
 For GPU 1,
 
@@ -53,8 +58,8 @@ GRUCell_GPU1 instead of GRUCell, etc.
 from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import rnn_cell_enhanced```
 
 #assuming you're using two gpu's
-first_layer = rnn_cell_enhanced.GRUCell_GPU0(size) #this is saying for gpu 0
-second_layer = rnn_cell_enhanced.GRUCell_GPU1(size)
+first_layer = rnn_cell_enhanced.GRUCell(size, gpu_for_layer = 0)
+second_layer = rnn_cell_enhanced.GRUCell(size, gpu_for_layer = 1)
 cell = rnn_cell.MultiRNNCell(([first_layer]*(num_layers/2)) + ([second_layer]*(num_layers/2)))
 
 #notice that we put consecutive layers on the same gpu. Also notice that you need to use an even number of layers.

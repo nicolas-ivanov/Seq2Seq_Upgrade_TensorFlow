@@ -17,14 +17,14 @@ from tensorflow.models.rnn import rnn_cell
 
 import cf
 
-def average_hidden_states(decoder_states):
+def average_hidden_states(decoder_states, average_hidden_state_influence = 0.5):
   mean_decoder_states = np.mean(decoder_states)
-  final_decoder_state = (0.5*decoder_states[-1])+0.5*mean_decoder_states
+  final_decoder_state = ((1 - average_hidden_state_influence) * decoder_states[-1])+average_hidden_state_influence*mean_decoder_states
   return final_decoder_state
 
 def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
                       output_size=None, num_heads=1, loop_function=None,
-                      dtype=tf.float32, scope=None):
+                      dtype=tf.float32, scope=None, average_states = False, average_hidden_state_influence = 0.5):
   """RNN decoder with attention for the sequence-to-sequence model.
 
   Args:
@@ -124,8 +124,15 @@ def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
           inp = tf.stop_gradient(loop_function(prev, i))
       # Merge input and previous attentions into one vector of the right size.
       x = linear.linear([inp] + attns, cell.input_size, True)
+      
+
+      hidden_state_input = states[-1]
+      if average_states:
+        '''implement averaging of states'''
+        hidden_state_input = average_hidden_states(states, average_hidden_state_influence) 
+
       # Run the RNN.
-      cell_output, new_state = cell(x, states[-1])
+      cell_output, new_state = cell(x, hidden_state_input) #nick, changed this to your hidden state input
       states.append(new_state)
       # Run the attention mechanism.
       attns = attention(new_state)
@@ -137,211 +144,13 @@ def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
       outputs.append(output)
 
   return outputs, states
-
-
-def attention_decoder_average_states(decoder_inputs, initial_state, attention_states, cell,
-                      output_size=None, num_heads=1, loop_function=None,
-                      dtype=tf.float32, scope=None):
-  """RNN decoder with attention for the sequence-to-sequence model.
-
-  Args:
-    decoder_inputs: a list of 2D Tensors [batch_size x cell.input_size].
-    initial_state: 2D Tensor [batch_size x cell.state_size].
-    attention_states: 3D Tensor [batch_size x attn_length x attn_size].
-    cell: rnn_cell.RNNCell defining the cell function and size.
-    output_size: size of the output vectors; if None, we use cell.output_size.
-    num_heads: number of attention heads that read from attention_states.
-    loop_function: if not None, this function will be applied to i-th output
-      in order to generate i+1-th input, and decoder_inputs will be ignored,
-      except for the first element ("GO" symbol). This can be used for decoding,
-      but also for training to emulate http://arxiv.org/pdf/1506.03099v2.pdf.
-      Signature -- loop_function(prev, i) = next
-        * prev is a 2D Tensor of shape [batch_size x cell.output_size],
-        * i is an integer, the step number (when advanced control is needed),
-        * next is a 2D Tensor of shape [batch_size x cell.input_size].
-    dtype: The dtype to use for the RNN initial state (default: tf.float32).
-    scope: VariableScope for the created subgraph; default: "attention_decoder".
-
-  Returns:
-    outputs: A list of the same length as decoder_inputs of 2D Tensors of shape
-      [batch_size x output_size]. These represent the generated outputs.
-      Output i is computed from input i (which is either i-th decoder_inputs or
-      loop_function(output {i-1}, i)) as follows. First, we run the cell
-      on a combination of the input and previous attention masks:
-        cell_output, new_state = cell(linear(input, prev_attn), prev_state).
-      Then, we calculate new attention masks:
-        new_attn = softmax(V^T * tanh(W * attention_states + U * new_state))
-      and then we calculate the output:
-        output = linear(cell_output, new_attn).
-    states: The state of each decoder cell in each time-step. This is a list
-      with length len(decoder_inputs) -- one item for each time-step.
-      Each item is a 2D Tensor of shape [batch_size x cell.state_size].
-
-  Raises:
-    ValueError: when num_heads is not positive, there are no inputs, or shapes
-      of attention_states are not set.
-  """
-
-
-  '''Added is the ability to average your hidden states along with a strong
-  emphasis of your last hidden state. You can adjust how much each each influences
-  the other'''
-
-  if not decoder_inputs:
-    raise ValueError("Must provide at least 1 input to attention decoder.")
-  if num_heads < 1:
-    raise ValueError("With less than 1 heads, use a non-attention decoder.")
-  if not attention_states.get_shape()[1:2].is_fully_defined():
-    raise ValueError("Shape[1] and [2] of attention_states must be known: %s"
-                     % attention_states.get_shape())
-  if output_size is None:
-    output_size = cell.output_size
-
-  with tf.variable_scope(scope or "attention_decoder_average_states"):
-    batch_size = tf.shape(decoder_inputs[0])[0]  # Needed for reshaping.
-    attn_length = attention_states.get_shape()[1].value
-    attn_size = attention_states.get_shape()[2].value
-
-    # To calculate W1 * h_t we use a 1-by-1 convolution, need to reshape before.
-    hidden = tf.reshape(attention_states, [-1, attn_length, 1, attn_size])
-    hidden_features = []
-    v = []
-    attention_vec_size = attn_size  # Size of query vectors for attention.
-    for a in xrange(num_heads):
-      k = tf.get_variable("AttnW_%d" % a, [1, 1, attn_size, attention_vec_size])
-      hidden_features.append(tf.nn.conv2d(hidden, k, [1, 1, 1, 1], "SAME"))
-      v.append(tf.get_variable("AttnV_%d" % a, [attention_vec_size]))
-
-    states = [initial_state]
-
-    def attention(query):
-      """Put attention masks on hidden using hidden_features and query."""
-      ds = []  # Results of attention reads will be stored here.
-      for a in xrange(num_heads):
-        with tf.variable_scope("Attention_%d" % a):
-          y = linear.linear(query, attention_vec_size, True)
-          y = tf.reshape(y, [-1, 1, 1, attention_vec_size])
-          # Attention mask is a softmax of v^T * tanh(...).
-          s = tf.reduce_sum(v[a] * tf.tanh(hidden_features[a] + y), [2, 3])
-          a = tf.nn.softmax(s)
-          # Now calculate the attention-weighted vector d.
-          d = tf.reduce_sum(tf.reshape(a, [-1, attn_length, 1, 1]) * hidden,
-                            [1, 2])
-          ds.append(tf.reshape(d, [-1, attn_size]))
-      return ds
-
-    outputs = []
-    prev = None
-    batch_attn_size = tf.pack([batch_size, attn_size])
-    attns = [tf.zeros(batch_attn_size, dtype=dtype)
-             for _ in xrange(num_heads)]
-    for a in attns:  # Ensure the second shape of attention vectors is set.
-      a.set_shape([None, attn_size])
-    for i in xrange(len(decoder_inputs)):
-      if i > 0:
-        tf.get_variable_scope().reuse_variables()
-      inp = decoder_inputs[i]
-      # If loop_function is set, we use it instead of decoder_inputs.
-      if loop_function is not None and prev is not None:
-        with tf.variable_scope("loop_function", reuse=True):
-          inp = tf.stop_gradient(loop_function(prev, i))
-      # Merge input and previous attentions into one vector of the right size.
-      x = linear.linear([inp] + attns, cell.input_size, True)
-
-      '''implement averaging of states'''
-      average_hidden_state = average_hidden_states(states) 
-
-
-      # Run the RNN.
-      cell_output, new_state = cell(x, average_hidden_state)
-      states.append(new_state)
-      # Run the attention mechanism.
-      attns = attention(new_state)
-      with tf.variable_scope("AttnOutputProjection"):
-        output = linear.linear([cell_output] + attns, output_size, True)
-      if loop_function is not None:
-        # We do not propagate gradients over the loop function.
-        prev = tf.stop_gradient(output)
-      outputs.append(output)
-
-  return outputs, states
-
-
-def embedding_attention_decoder_average_states(decoder_inputs, initial_state, attention_states,
-                                cell, num_symbols, num_heads=1,
-                                output_size=None, output_projection=None,
-                                feed_previous=False, dtype=tf.float32,
-                                scope=None):
-  """RNN decoder with embedding and attention and a pure-decoding option.
-
-  Args:
-    decoder_inputs: a list of 1D batch-sized int32-Tensors (decoder inputs).
-    initial_state: 2D Tensor [batch_size x cell.state_size].
-    attention_states: 3D Tensor [batch_size x attn_length x attn_size].
-    cell: rnn_cell.RNNCell defining the cell function.
-    num_symbols: integer, how many symbols come into the embedding.
-    num_heads: number of attention heads that read from attention_states.
-    output_size: size of the output vectors; if None, use cell.output_size.
-    output_projection: None or a pair (W, B) of output projection weights and
-      biases; W has shape [output_size x num_symbols] and B has shape
-      [num_symbols]; if provided and feed_previous=True, each fed previous
-      output will first be multiplied by W and added B.
-    feed_previous: Boolean; if True, only the first of decoder_inputs will be
-      used (the "GO" symbol), and all other decoder inputs will be generated by:
-        next = embedding_lookup(embedding, argmax(previous_output)),
-      In effect, this implements a greedy decoder. It can also be used
-      during training to emulate http://arxiv.org/pdf/1506.03099v2.pdf.
-      If False, decoder_inputs are used as given (the standard decoder case).
-    dtype: The dtype to use for the RNN initial states (default: tf.float32).
-    scope: VariableScope for the created subgraph; defaults to
-      "embedding_attention_decoder".
-
-  Returns:
-    outputs: A list of the same length as decoder_inputs of 2D Tensors with
-      shape [batch_size x output_size] containing the generated outputs.
-    states: The state of each decoder cell in each time-step. This is a list
-      with length len(decoder_inputs) -- one item for each time-step.
-      Each item is a 2D Tensor of shape [batch_size x cell.state_size].
-
-  Raises:
-    ValueError: when output_projection has the wrong shape.
-  """
-  if output_size is None:
-    output_size = cell.output_size
-  if output_projection is not None:
-    proj_weights = tf.convert_to_tensor(output_projection[0], dtype=dtype)
-    proj_weights.get_shape().assert_is_compatible_with([cell.output_size,
-                                                        num_symbols])
-    proj_biases = tf.convert_to_tensor(output_projection[1], dtype=dtype)
-    proj_biases.get_shape().assert_is_compatible_with([num_symbols])
-
-  with tf.variable_scope(scope or "embedding_attention_decoder_average_states"):
-    with tf.device("/cpu:0"):
-      embedding = tf.get_variable("embedding", [num_symbols, cell.input_size])
-
-    def extract_argmax_and_embed(prev, _):
-      """Loop_function that extracts the symbol from prev and embeds it."""
-      if output_projection is not None:
-        prev = tf.nn.xw_plus_b(prev, output_projection[0], output_projection[1])
-      prev_symbol = tf.stop_gradient(tf.argmax(prev, 1))
-      emb_prev = tf.nn.embedding_lookup(embedding, prev_symbol)
-      return emb_prev
-
-    loop_function = None
-    if feed_previous:
-      loop_function = extract_argmax_and_embed
-
-    emb_inp = [tf.nn.embedding_lookup(embedding, i) for i in decoder_inputs]
-    return attention_decoder_average_states(
-        emb_inp, initial_state, attention_states, cell, output_size=output_size,
-        num_heads=num_heads, loop_function=loop_function)
 
 
 def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,
                                 cell, num_symbols, num_heads=1,
                                 output_size=None, output_projection=None,
                                 feed_previous=False, dtype=tf.float32,
-                                scope=None):
+                                scope=None, average_states = False, average_hidden_state_influence = 0.5):
   """RNN decoder with embedding and attention and a pure-decoding option.
 
   Args:
@@ -402,16 +211,19 @@ def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,
       loop_function = extract_argmax_and_embed
 
     emb_inp = [tf.nn.embedding_lookup(embedding, i) for i in decoder_inputs]
+    
     return attention_decoder(
-        emb_inp, initial_state, attention_states, cell, output_size=output_size,
-        num_heads=num_heads, loop_function=loop_function)
+      emb_inp, initial_state, attention_states, cell, output_size=output_size,
+      num_heads=num_heads, loop_function=loop_function, average_states = average_states, 
+      average_hidden_state_influence = average_hidden_state_influence)
 
 
 def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
                                 num_encoder_symbols, num_decoder_symbols,
                                 num_heads=1, output_projection=None,
                                 feed_previous=False, dtype=tf.float32,
-                                scope=None, average_states = False):
+                                scope=None, average_states = False,
+                                average_hidden_state_influence = 0.5):
   """Embedding sequence-to-sequence model with attention.
 
   This model first embeds encoder_inputs by a newly created embedding (of shape
@@ -472,7 +284,7 @@ def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
         return embedding_attention_decoder_average_states(
           decoder_inputs, encoder_states[-1], attention_states, cell,
           num_decoder_symbols, num_heads, output_size, output_projection,
-          feed_previous)
+          feed_previous, average_hidden_state_influence = average_hidden_state_influence)
       else:
         return embedding_attention_decoder(
           decoder_inputs, encoder_states[-1], attention_states, cell,
@@ -482,35 +294,25 @@ def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
     else:  # If feed_previous is a Tensor, we construct 2 graphs and use cond.
       '''nick, right here, you modify by doing a broad if statement'''
 
-      if average_states:
-        outputs1, states1 = embedding_attention_decoder_average_states(
-            decoder_inputs, encoder_states[-1], attention_states, cell,
-            num_decoder_symbols, num_heads, output_size, output_projection, True)
-        tf.get_variable_scope().reuse_variables()
-        outputs2, states2 = embedding_attention_decoder_average_states(
-            decoder_inputs, encoder_states[-1], attention_states, cell,
-            num_decoder_symbols, num_heads, output_size, output_projection, False)
+      
+      outputs1, states1 = embedding_attention_decoder(
+          decoder_inputs, encoder_states[-1], attention_states, cell,
+          num_decoder_symbols, num_heads, output_size, output_projection, True, 
+          average_states = average_states,
+          average_hidden_state_influence = average_hidden_state_influence)
+      tf.get_variable_scope().reuse_variables()
+      outputs2, states2 = embedding_attention_decoder(
+          decoder_inputs, encoder_states[-1], attention_states, cell,
+          num_decoder_symbols, num_heads, output_size, output_projection, False,
+          average_states = average_states,
+          average_hidden_state_influence = average_hidden_state_influence)
 
-        outputs = tf.control_flow_ops.cond(feed_previous,
-                                           lambda: outputs1, lambda: outputs2)
-        states = tf.control_flow_ops.cond(feed_previous,
-                                        lambda: states1, lambda: states2)
+      outputs = tf.control_flow_ops.cond(feed_previous,
+                                         lambda: outputs1, lambda: outputs2)
+      states = tf.control_flow_ops.cond(feed_previous,
+                                      lambda: states1, lambda: states2)
 
-        #where is the backprop? I don't know if its here or not. 
-
-      else:
-        outputs1, states1 = embedding_attention_decoder(
-            decoder_inputs, encoder_states[-1], attention_states, cell,
-            num_decoder_symbols, num_heads, output_size, output_projection, True)
-        tf.get_variable_scope().reuse_variables()
-        outputs2, states2 = embedding_attention_decoder(
-            decoder_inputs, encoder_states[-1], attention_states, cell,
-            num_decoder_symbols, num_heads, output_size, output_projection, False)
-
-        outputs = tf.control_flow_ops.cond(feed_previous,
-                                           lambda: outputs1, lambda: outputs2)
-        states = tf.control_flow_ops.cond(feed_previous,
-                                        lambda: states1, lambda: states2)
+      #where is the backprop? I don't know if its here or not.    
 
       return outputs, states
 

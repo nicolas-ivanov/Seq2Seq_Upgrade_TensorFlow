@@ -118,8 +118,9 @@ class BasicRNNCell(RNNCell):
 class JZS1Cell(RNNCell):
   """Mutant 1 of the following paper: http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf"""
 
-  def __init__(self, num_units):
+  def __init__(self, num_units, gpu_for_layer = 0):
     self._num_units = num_units
+    self._gpu_for_layer = gpu_for_layer
 
   @property
   def input_size(self):
@@ -133,33 +134,33 @@ class JZS1Cell(RNNCell):
   def state_size(self):
     return self._num_units
 
-  def __call__(self, inputs, state, scope=None):
+  def __call__(self, inputs, state, gpu_number = self._gpu_for_layer, scope=None):
+    with tf.device("/gpu:"+str(gpu_number)):
+      """JZS1, mutant 1 with n units cells."""
+      with tf.variable_scope(scope or type(self).__name__):  # "JZS1Cell"
+        with tf.variable_scope("JZS1Gates"):  # Reset gate and update gate.
+          # We start with bias of 1.0 to not reset and not update.
+          '''equation 1 z = sigm(WxzXt+Bz), x_t is inputs'''
 
-    """JZS1, mutant 1 with n units cells."""
-    with tf.variable_scope(scope or type(self).__name__):  # "JZS1Cell"
-      with tf.variable_scope("JZS1Gates"):  # Reset gate and update gate.
-        # We start with bias of 1.0 to not reset and not update.
-        '''equation 1 z = sigm(WxzXt+Bz), x_t is inputs'''
+          z = tf.sigmoid(linear.linear([inputs], 
+                            self._num_units, True, 1.0))
 
-        z = tf.sigmoid(linear.linear([inputs], 
-                          self._num_units, True, 1.0))
+          '''equation 2 r = sigm(WxrXt+Whrht+Br), h_t is the previous state'''
 
-        '''equation 2 r = sigm(WxrXt+Whrht+Br), h_t is the previous state'''
+          r = tf.sigmoid((linear.linear([inputs,state]
+                            self._num_units, True, 1.0)))
+          '''equation 3'''
 
-        r = tf.sigmoid((linear.linear([inputs,state]
-                          self._num_units, True, 1.0)))
-        '''equation 3'''
+          component_0 = linear.linear([inputs, r],
+                            self._num_units, True)
+          component_1 = tf.tanh(tf.tanh(inputs) + component_0)
+          component_2 = component_1*z
+          component_3 = state*(1 - z)
 
-        component_0 = linear.linear([inputs, r],
-                          self._num_units, True)
-        component_1 = tf.tanh(tf.tanh(inputs) + component_0)
-        component_2 = component_1*z
-        component_3 = state*(1 - z)
+          h_t = component_2 + component_3
 
-        h_t = component_2 + component_3
-
-      return h_t, h_t #there is only one hidden state output to keep track of. 
-      #This makes it more mem efficient than LSTM
+        return h_t, h_t #there is only one hidden state output to keep track of. 
+        #This makes it more mem efficient than LSTM
 
 
 
@@ -168,8 +169,10 @@ class JZS1Cell(RNNCell):
 class GRUCell(RNNCell):
   """Gated Recurrent Unit cell (cf. http://arxiv.org/abs/1406.1078)."""
 
-  def __init__(self, num_units):
+  def __init__(self, num_units, gpu_for_layer = 0):
     self._num_units = num_units
+    self._gpu_for_layer = gpu_for_layer
+
 
   @property
   def input_size(self):
@@ -183,115 +186,24 @@ class GRUCell(RNNCell):
   def state_size(self):
     return self._num_units
 
-  def __call__(self, inputs, state, scope=None):
-    """Gated recurrent unit (GRU) with nunits cells."""
-    with tf.variable_scope(scope or type(self).__name__):  # "GRUCell"
-      with tf.variable_scope("Gates"):  # Reset gate and update gate.
-        # We start with bias of 1.0 to not reset and not udpate.
-        r, u = tf.split(1, 2, linear.linear([inputs, state],
-                                            2 * self._num_units, True, 1.0))
-        
-        "linear.linear yields a 2d tensor plus a bias term at the end. u is the bias term."
-        r, u = tf.sigmoid(r), tf.sigmoid(u)
-      with tf.variable_scope("Candidate"):
-        c = tf.tanh(linear.linear([inputs, r * state], self._num_units, True))
-      new_h = u * state + (1 - u) * c
-    return new_h, new_h
+  def __call__(self, inputs, state, gpu_number = self._gpu_for_layer,scope=None):
+    with tf.device("/gpu:"+str(gpu_number)):
 
-    '''nick, notice that for the gru, the output and the hidden state are literally the same thing'''
-
-
-
-class GRUCell_GPU0(RNNCell):
-  """Gated Recurrent Unit cell (cf. http://arxiv.org/abs/1406.1078)."""
-
-  def __init__(self, num_units):
-    self._num_units = num_units
-
-  @property
-  def input_size(self):
-    return self._num_units
-
-  @property
-  def output_size(self):
-    return self._num_units
-
-  @property
-  def state_size(self):
-    return self._num_units
-
-  def __call__(self, inputs, state, scope=None):
-
-    with tf.device("/gpu:0"):
-      """Gated recurrent unit (GRU) with nunits cells."""
-      with tf.variable_scope(scope or type(self).__name__):  # "GRUCell"
-        with tf.variable_scope("Gates"):  # Reset gate and update gate.
-          # We start with bias of 1.0 to not reset and not udpate.
-
-          '''nick, something really important to understand is that inputs
-          represent the batch size x xt input, and state is the hidden state
-          this is why minibatch size is important to keep small'''
-          r, u = tf.split(1, 2, linear.linear([inputs, state],
-                                              2 * self._num_units, True, 1.0))
-
-          '''why do they have 2*numberofunits? is it because of the split
-          the split splits this all into two separate tensors, but why do they need
-          two separate tensors? Its because they are mashing two equations into one line!
-
-          remember that state, represents the previous state, which is h_t-1'''
-          r, u = tf.sigmoid(r), tf.sigmoid(u)
-        with tf.variable_scope("Candidate"):
-          c = tf.tanh(linear.linear([inputs, r * state], self._num_units, True))
-        new_h = u * state + (1 - u) * c
-      return new_h, new_h
-
-      '''nick a few things
-      their u, the bias unit, is equivalent to z_t
-      the linear.linear function is the equivalent of doing dot product of W 
-
-
-      so if you have a dot product of two scalars
-
-      a dot [x,y] = ax + ay
-
-      the asterik * means multiplication
-      I believe dot is the scalar product! so how do you do scalr product of two scalars?
-
-      '''
-      #notice here that they have duplicate hidden unit and actual output...i don't get how that is possible
-
-class GRUCell_GPU1(RNNCell):
-  """Gated Recurrent Unit cell (cf. http://arxiv.org/abs/1406.1078)."""
-
-  def __init__(self, num_units):
-    self._num_units = num_units
-
-  @property
-  def input_size(self):
-    return self._num_units
-
-  @property
-  def output_size(self):
-    return self._num_units
-
-  @property
-  def state_size(self):
-    return self._num_units
-
-  def __call__(self, inputs, state, scope=None):
-
-    with tf.device("/gpu:1"):
       """Gated recurrent unit (GRU) with nunits cells."""
       with tf.variable_scope(scope or type(self).__name__):  # "GRUCell"
         with tf.variable_scope("Gates"):  # Reset gate and update gate.
           # We start with bias of 1.0 to not reset and not udpate.
           r, u = tf.split(1, 2, linear.linear([inputs, state],
                                               2 * self._num_units, True, 1.0))
+          
+          "linear.linear yields a 2d tensor plus a bias term at the end. u is the bias term."
           r, u = tf.sigmoid(r), tf.sigmoid(u)
         with tf.variable_scope("Candidate"):
           c = tf.tanh(linear.linear([inputs, r * state], self._num_units, True))
         new_h = u * state + (1 - u) * c
       return new_h, new_h
+
+      '''nick, notice that for the gru, the output and the hidden state are literally the same thing'''
 
 
 class BasicLSTMCell(RNNCell):
@@ -306,9 +218,10 @@ class BasicLSTMCell(RNNCell):
   the scale of forgetting in the beginning of the training.
   """
 
-  def __init__(self, num_units, forget_bias=1.0):
+  def __init__(self, num_units, gpu_for_layer = 0):
     self._num_units = num_units
-    self._forget_bias = forget_bias
+    self._gpu_for_layer = gpu_for_layer
+
 
   @property
   def input_size(self):
@@ -322,27 +235,28 @@ class BasicLSTMCell(RNNCell):
   def state_size(self):
     return 2 * self._num_units
 
-  def __call__(self, inputs, state, scope=None):
-    """Long short-term memory cell (LSTM)."""
-    with tf.variable_scope(scope or type(self).__name__):  # "BasicLSTMCell"
-      # Parameters of gates are concatenated into one multiply for efficiency.
-      c, h = tf.split(1, 2, state)
-      concat = linear.linear([inputs, h], 4 * self._num_units, True)
+  def __call__(self, inputs, state, gpu_number = self._gpu_for_layer, scope=None):
+    with tf.device("/gpu:"+str(gpu_number)):
+      """Long short-term memory cell (LSTM)."""
+      with tf.variable_scope(scope or type(self).__name__):  # "BasicLSTMCell"
+        # Parameters of gates are concatenated into one multiply for efficiency.
+        c, h = tf.split(1, 2, state)
+        concat = linear.linear([inputs, h], 4 * self._num_units, True)
 
-      # i = input_gate, j = new_input, f = forget_gate, o = output_gate
-      i, j, f, o = tf.split(1, 4, concat)
+        # i = input_gate, j = new_input, f = forget_gate, o = output_gate
+        i, j, f, o = tf.split(1, 4, concat)
 
-      new_c = c * tf.sigmoid(f + self._forget_bias) + tf.sigmoid(i) * tf.tanh(j)
-      new_h = tf.tanh(new_c) * tf.sigmoid(o)
+        new_c = c * tf.sigmoid(f + self._forget_bias) + tf.sigmoid(i) * tf.tanh(j)
+        new_h = tf.tanh(new_c) * tf.sigmoid(o)
 
-    return new_h, tf.concat(1, [new_c, new_h])
+      return new_h, tf.concat(1, [new_c, new_h])
 
-    '''important, the second part is the hidden state!, thus a lstm with n cells had a hidden state of dimenson 2n'''
+      '''important, the second part is the hidden state!, thus a lstm with n cells had a hidden state of dimenson 2n'''
 
-    #in the basic lstm, the output and the hidden state are different!
+      #in the basic lstm, the output and the hidden state are different!
 
 
-class LSTMCell_GPU0(RNNCell):
+class LSTMCell(RNNCell):
   """Long short-term memory unit (LSTM) recurrent network cell.
 
   This implementation is based on:
@@ -360,7 +274,8 @@ class LSTMCell_GPU0(RNNCell):
   def __init__(self, num_units, input_size,
                use_peepholes=False, cell_clip=None,
                initializer=None, num_proj=None,
-               num_unit_shards=1, num_proj_shards=1):
+               num_unit_shards=1, num_proj_shards=1,
+               gpu_for_layer = 0):
     """Initialize the parameters for an LSTM cell.
 
     Args:
@@ -393,6 +308,7 @@ class LSTMCell_GPU0(RNNCell):
     self._num_proj = num_proj
     self._num_unit_shards = num_unit_shards
     self._num_proj_shards = num_proj_shards
+    self._gpu_for_layer = gpu_for_layer
 
     if (num_units * 4) % num_unit_shards != 0:
       raise ValueError("num_unit_shards must evently divide 4 * num_units")
@@ -418,9 +334,9 @@ class LSTMCell_GPU0(RNNCell):
   def state_size(self):
     return self._state_size
 
-  def __call__(self, input_, state, scope=None):
+  def __call__(self, input_, state, gpu_number = self._gpu_for_layer, scope=None):
     
-      with tf.device("/gpu:0"):
+      with tf.device("/gpu:"+str(gpu_number)):
 
         """Run one step of LSTM.
 
@@ -500,327 +416,6 @@ class LSTMCell_GPU0(RNNCell):
             m = tf.matmul(m, w_proj)
 
       return m, tf.concat(1, [c, m])      
-
-
-
-class LSTMCell_GPU1(RNNCell):
-  """Long short-term memory unit (LSTM) recurrent network cell.
-
-  This implementation is based on:
-
-    https://research.google.com/pubs/archive/43905.pdf
-
-  Hasim Sak, Andrew Senior, and Francoise Beaufays.
-  "Long short-term memory recurrent neural network architectures for
-   large scale acoustic modeling." INTERSPEECH, 2014.
-
-  It uses peep-hole connections, optional cell clipping, and an optional
-  projection layer.
-  """
-
-  def __init__(self, num_units, input_size,
-               use_peepholes=False, cell_clip=None,
-               initializer=None, num_proj=None,
-               num_unit_shards=1, num_proj_shards=1):
-    """Initialize the parameters for an LSTM cell.
-
-    Args:
-      num_units: int, The number of units in the LSTM cell
-      input_size: int, The dimensionality of the inputs into the LSTM cell
-      use_peepholes: bool, set True to enable diagonal/peephole connections.
-      cell_clip: (optional) A float value, if provided the cell state is clipped
-        by this value prior to the cell output activation.
-      initializer: (optional) The initializer to use for the weight and
-        projection matrices.
-      num_proj: (optional) int, The output dimensionality for the projection
-        matrices.  If None, no projection is performed.
-      num_unit_shards: How to split the weight matrix.  If >1, the weight
-        matrix is stored across num_unit_shards.
-        Note that num_unit_shards must evenly divide num_units * 4.
-      num_proj_shards: How to split the projection matrix.  If >1, the
-        projection matrix is stored across num_proj_shards.
-        Note that num_proj_shards must evenly divide num_proj
-              (if num_proj is not None).
-
-    Raises:
-      ValueError: if num_unit_shards doesn't divide 4 * num_units or
-        num_proj_shards doesn't divide num_proj
-    """
-    self._num_units = num_units
-    self._input_size = input_size
-    self._use_peepholes = use_peepholes
-    self._cell_clip = cell_clip
-    self._initializer = initializer
-    self._num_proj = num_proj
-    self._num_unit_shards = num_unit_shards
-    self._num_proj_shards = num_proj_shards
-
-    if (num_units * 4) % num_unit_shards != 0:
-      raise ValueError("num_unit_shards must evently divide 4 * num_units")
-    if num_proj and num_proj % num_proj_shards != 0:
-      raise ValueError("num_proj_shards must evently divide num_proj")
-
-    if num_proj:
-      self._state_size = num_units + num_proj
-      self._output_size = num_proj
-    else:
-      self._state_size = 2 * num_units
-      self._output_size = num_units
-
-  @property
-  def input_size(self):
-    return self._input_size
-
-  @property
-  def output_size(self):
-    return self._output_size
-
-  @property
-  def state_size(self):
-    return self._state_size
-
-  def __call__(self, input_, state, scope=None):
-    
-          with tf.device("/gpu:1"):
-
-            """Run one step of LSTM.
-
-            Args:
-              input_: input Tensor, 2D, batch x num_units.
-              state: state Tensor, 2D, batch x state_size.
-              scope: VariableScope for the created subgraph; defaults to "LSTMCell".
-
-            Returns:
-              A tuple containing:
-              - A 2D, batch x output_dim, Tensor representing the output of the LSTM
-                after reading "input_" when previous state was "state".
-                Here output_dim is:
-                   num_proj if num_proj was set,
-                   num_units otherwise.
-              - A 2D, batch x state_size, Tensor representing the new state of LSTM
-                after reading "input_" when previous state was "state".
-            """
-            num_proj = self._num_units if self._num_proj is None else self._num_proj
-
-            c_prev = tf.slice(state, [0, 0], [-1, self._num_units])
-            m_prev = tf.slice(state, [0, self._num_units], [-1, num_proj])
-
-            dtype = input_.dtype
-
-            unit_shard_size = (4 * self._num_units) // self._num_unit_shards
-
-            with tf.variable_scope(scope or type(self).__name__):  # "LSTMCell"
-              w = tf.concat(
-                  1,
-                  [tf.get_variable("W_%d" % i,
-                                   shape=[self.input_size + num_proj, unit_shard_size],
-                                   initializer=self._initializer,
-                                   dtype=dtype) for i in xrange(self._num_unit_shards)])
-
-              b = tf.get_variable(
-                  "B", shape=[4 * self._num_units],
-                  initializer=tf.zeros_initializer, dtype=dtype)
-
-              # i = input_gate, j = new_input, f = forget_gate, o = output_gate
-              cell_inputs = tf.concat(1, [input_, m_prev])
-              i, j, f, o = tf.split(1, 4, tf.nn.bias_add(tf.matmul(cell_inputs, w), b))
-
-              # Diagonal connections
-              if self._use_peepholes:
-                w_f_diag = tf.get_variable(
-                    "W_F_diag", shape=[self._num_units], dtype=dtype)
-                w_i_diag = tf.get_variable(
-                    "W_I_diag", shape=[self._num_units], dtype=dtype)
-                w_o_diag = tf.get_variable(
-                    "W_O_diag", shape=[self._num_units], dtype=dtype)
-
-              if self._use_peepholes:
-                c = (tf.sigmoid(f + 1 + w_f_diag * c_prev) * c_prev +
-                     tf.sigmoid(i + w_i_diag * c_prev) * tf.tanh(j))
-              else:
-                c = (tf.sigmoid(f + 1) * c_prev + tf.sigmoid(i) * tf.tanh(j))
-
-              if self._cell_clip is not None:
-                c = tf.clip_by_value(c, -self._cell_clip, self._cell_clip)
-
-              if self._use_peepholes:
-                m = tf.sigmoid(o + w_o_diag * c) * tf.tanh(c)
-              else:
-                m = tf.sigmoid(o) * tf.tanh(c)
-
-              if self._num_proj is not None:
-                proj_shard_size = self._num_proj // self._num_proj_shards
-                w_proj = tf.concat(
-                    1,
-                    [tf.get_variable("W_P_%d" % i,
-                                     shape=[self._num_units, proj_shard_size],
-                                     initializer=self._initializer,
-                                     dtype=dtype)
-                     for i in xrange(self._num_proj_shards)])
-                # TODO(ebrevdo), use matmulsum
-                m = tf.matmul(m, w_proj)
-
-            return m, tf.concat(1, [c, m])
-
-
-class LSTMCell_GPU2(RNNCell):
-  """Long short-term memory unit (LSTM) recurrent network cell.
-
-  This implementation is based on:
-
-    https://research.google.com/pubs/archive/43905.pdf
-
-  Hasim Sak, Andrew Senior, and Francoise Beaufays.
-  "Long short-term memory recurrent neural network architectures for
-   large scale acoustic modeling." INTERSPEECH, 2014.
-
-  It uses peep-hole connections, optional cell clipping, and an optional
-  projection layer.
-  """
-
-  def __init__(self, num_units, input_size,
-               use_peepholes=False, cell_clip=None,
-               initializer=None, num_proj=None,
-               num_unit_shards=1, num_proj_shards=1):
-    """Initialize the parameters for an LSTM cell.
-
-    Args:
-      num_units: int, The number of units in the LSTM cell
-      input_size: int, The dimensionality of the inputs into the LSTM cell
-      use_peepholes: bool, set True to enable diagonal/peephole connections.
-      cell_clip: (optional) A float value, if provided the cell state is clipped
-        by this value prior to the cell output activation.
-      initializer: (optional) The initializer to use for the weight and
-        projection matrices.
-      num_proj: (optional) int, The output dimensionality for the projection
-        matrices.  If None, no projection is performed.
-      num_unit_shards: How to split the weight matrix.  If >1, the weight
-        matrix is stored across num_unit_shards.
-        Note that num_unit_shards must evenly divide num_units * 4.
-      num_proj_shards: How to split the projection matrix.  If >1, the
-        projection matrix is stored across num_proj_shards.
-        Note that num_proj_shards must evenly divide num_proj
-              (if num_proj is not None).
-
-    Raises:
-      ValueError: if num_unit_shards doesn't divide 4 * num_units or
-        num_proj_shards doesn't divide num_proj
-    """
-    self._num_units = num_units
-    self._input_size = input_size
-    self._use_peepholes = use_peepholes
-    self._cell_clip = cell_clip
-    self._initializer = initializer
-    self._num_proj = num_proj
-    self._num_unit_shards = num_unit_shards
-    self._num_proj_shards = num_proj_shards
-
-    if (num_units * 4) % num_unit_shards != 0:
-      raise ValueError("num_unit_shards must evently divide 4 * num_units")
-    if num_proj and num_proj % num_proj_shards != 0:
-      raise ValueError("num_proj_shards must evently divide num_proj")
-
-    if num_proj:
-      self._state_size = num_units + num_proj
-      self._output_size = num_proj
-    else:
-      self._state_size = 2 * num_units
-      self._output_size = num_units
-
-  @property
-  def input_size(self):
-    return self._input_size
-
-  @property
-  def output_size(self):
-    return self._output_size
-
-  @property
-  def state_size(self):
-    return self._state_size
-
-  def __call__(self, input_, state, scope=None):
-    
-          with tf.device("/gpu:2"):
-
-            """Run one step of LSTM.
-
-            Args:
-              input_: input Tensor, 2D, batch x num_units.
-              state: state Tensor, 2D, batch x state_size.
-              scope: VariableScope for the created subgraph; defaults to "LSTMCell".
-
-            Returns:
-              A tuple containing:
-              - A 2D, batch x output_dim, Tensor representing the output of the LSTM
-                after reading "input_" when previous state was "state".
-                Here output_dim is:
-                   num_proj if num_proj was set,
-                   num_units otherwise.
-              - A 2D, batch x state_size, Tensor representing the new state of LSTM
-                after reading "input_" when previous state was "state".
-            """
-            num_proj = self._num_units if self._num_proj is None else self._num_proj
-
-            c_prev = tf.slice(state, [0, 0], [-1, self._num_units])
-            m_prev = tf.slice(state, [0, self._num_units], [-1, num_proj])
-
-            dtype = input_.dtype
-
-            unit_shard_size = (4 * self._num_units) // self._num_unit_shards
-
-            with tf.variable_scope(scope or type(self).__name__):  # "LSTMCell"
-              w = tf.concat(
-                  1,
-                  [tf.get_variable("W_%d" % i,
-                                   shape=[self.input_size + num_proj, unit_shard_size],
-                                   initializer=self._initializer,
-                                   dtype=dtype) for i in xrange(self._num_unit_shards)])
-
-              b = tf.get_variable(
-                  "B", shape=[4 * self._num_units],
-                  initializer=tf.zeros_initializer, dtype=dtype)
-
-              # i = input_gate, j = new_input, f = forget_gate, o = output_gate
-              cell_inputs = tf.concat(1, [input_, m_prev])
-              i, j, f, o = tf.split(1, 4, tf.nn.bias_add(tf.matmul(cell_inputs, w), b))
-
-              # Diagonal connections
-              if self._use_peepholes:
-                w_f_diag = tf.get_variable(
-                    "W_F_diag", shape=[self._num_units], dtype=dtype)
-                w_i_diag = tf.get_variable(
-                    "W_I_diag", shape=[self._num_units], dtype=dtype)
-                w_o_diag = tf.get_variable(
-                    "W_O_diag", shape=[self._num_units], dtype=dtype)
-
-              if self._use_peepholes:
-                c = (tf.sigmoid(f + 1 + w_f_diag * c_prev) * c_prev +
-                     tf.sigmoid(i + w_i_diag * c_prev) * tf.tanh(j))
-              else:
-                c = (tf.sigmoid(f + 1) * c_prev + tf.sigmoid(i) * tf.tanh(j))
-
-              if self._cell_clip is not None:
-                c = tf.clip_by_value(c, -self._cell_clip, self._cell_clip)
-
-              if self._use_peepholes:
-                m = tf.sigmoid(o + w_o_diag * c) * tf.tanh(c)
-              else:
-                m = tf.sigmoid(o) * tf.tanh(c)
-
-              if self._num_proj is not None:
-                proj_shard_size = self._num_proj // self._num_proj_shards
-                w_proj = tf.concat(
-                    1,
-                    [tf.get_variable("W_P_%d" % i,
-                                     shape=[self._num_units, proj_shard_size],
-                                     initializer=self._initializer,
-                                     dtype=dtype)
-                     for i in xrange(self._num_proj_shards)])
-                # TODO(ebrevdo), use matmulsum
-                m = tf.matmul(m, w_proj)
-
-            return m, tf.concat(1, [c, m])
 
 class OutputProjectionWrapper(RNNCell):
   """Operator adding an output projection to the given cell.
