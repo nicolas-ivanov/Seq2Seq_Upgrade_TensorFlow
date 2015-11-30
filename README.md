@@ -14,9 +14,12 @@ Main Features Include:
 
 - Averaging Hidden States During Decoding
 - Different GRU's and LSTM's layers on different GPU's
+- GRU Mutant 1 from [this paper](http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf)
+
+Currently Working On:
 - Curriculum Learning (In Progress)
-- Temperature Integration (In Progress)
-- uRNN (In Progress)
+- Temperature Integration (Almost Done)
+- uRNN (Ummm...gonna take a while)
 - Async Loading Data during training (In Progress)
 
 You will find many, *many* comments in the code. Just like you guys, I'm still very much learning and it helps me to comment as much as possible. 
@@ -57,5 +60,17 @@ cell = rnn_cell.MultiRNNCell(([first_layer]*(num_layers/2)) + ([second_layer]*(n
 #notice that we put consecutive layers on the same gpu. Also notice that you need to use an even number of layers.
 ```
 
+
+##GRU Mutant 1 (from Jozefowicz et al.)
+
+This mutant does better in some seq2seq tasks. Memory wise, it is the same as GRU, so you can fit more cells in your GPU.
+
+To use this simply:
+
+```python
+from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import rnn_cell_enhanced```
+
+first_layer = rnn_cell_enhanced.JZS1Cell(size)
+```
 
 
