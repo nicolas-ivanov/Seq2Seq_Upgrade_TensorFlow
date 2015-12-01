@@ -11,7 +11,7 @@ import tensorflow as tf
 
 from tensorflow.models.rnn import linear
 
-
+import unitary_rnn_library as url
 
 '''
 
@@ -111,6 +111,151 @@ class BasicRNNCell(RNNCell):
       output = tf.tanh(linear.linear([inputs, state], self._num_units, True))
     return output, output
 
+
+    def recurrence(x_t, y_t, h_prev, cost_prev, acc_prev, V, W, hidden_bias, out_mat, out_bias):
+        h_t = T.tanh(T.dot(h_prev, W) + T.dot(x_t, V) + hidden_bias.dimshuffle('x', 0))
+
+        #okay nick, so when they do h_prev, that is the previous hidden state, and i guess w and v are the same in tf?
+
+
+        #something important to note is that the linear output is sent to a softmax afterwards. -- linear output
+        #is directly inserted into the softmax
+
+
+
+
+
+
+
+
+
+'''Note -- UnitaryRNNCell Is Still Being Developed -- It Will NOT Work If You Call It'''
+class UnitaryRNNCell(RNNCell):
+  """Unitary RNN from Paper: http://arxiv.org/pdf/1511.06464v1.pdf"""
+
+  def __init__(self, num_units, gpu_for_layer = 0):
+    self._num_units = num_units
+    self._gpu_for_layer = gpu_for_layer
+
+  @property #these properities you may need to modify for the unitary part. Double for imaginary parts. not sure yet though.
+  def input_size(self):
+    return self._num_units
+
+  @property
+  def output_size(self):
+    return self._num_units
+
+  @property
+  def state_size(self):
+    return self._num_units
+
+  def __call__(self, inputs, state, gpu_number = self._gpu_for_layer, scope=None):
+    with tf.device("/gpu:"+str(gpu_number)):
+
+
+   def recurrence(x_t, y_t, h_prev, cost_prev, acc_prev, theta, V_re, V_im, hidden_bias, scale, out_bias, U):  
+
+        # Compute hidden linear transform
+        step1 = times_diag(h_prev, n_hidden, theta[0,:])
+        step2 = step1
+#        step2 = do_fft(step1, n_hidden)
+        step3 = times_reflection(step2, n_hidden, reflection[0,:])
+        step4 = vec_permutation(step3, n_hidden, index_permute)
+        step5 = times_diag(step4, n_hidden, theta[1,:])
+        step6 = step5
+#        step6 = do_ifft(step5, n_hidden)
+        step7 = times_reflection(step6, n_hidden, reflection[1,:])
+        step8 = times_diag(step7, n_hidden, theta[2,:])     
+        step9 = scale_diag(step8, n_hidden, scale)
+        
+        hidden_lin_output = step9
+        
+        # Compute data linear transform
+        data_lin_output_re = T.dot(x_t, V_re)
+        data_lin_output_im = T.dot(x_t, V_im)
+        data_lin_output = T.concatenate([data_lin_output_re, data_lin_output_im], axis=1)
+        
+        # Total linear output        
+        lin_output = hidden_lin_output + data_lin_output
+        lin_output_re = lin_output[:, :n_hidden]
+        lin_output_im = lin_output[:, n_hidden:] 
+
+
+        # Apply non-linearity ----------------------------
+
+
+        # scale RELU nonlinearity
+        modulus = T.sqrt(lin_output_re ** 2 + lin_output_im ** 2)
+        rescale = T.maximum(modulus + hidden_bias.dimshuffle('x',0), 0.) / (modulus + 1e-5)
+        nonlin_output_re = lin_output_re * rescale
+        nonlin_output_im = lin_output_im * rescale
+
+        h_t = T.concatenate([nonlin_output_re, 
+                             nonlin_output_im], axis=1) 
+        if out_every_t:
+            lin_output = T.dot(h_t, U) + out_bias.dimshuffle('x', 0)
+            if loss_function == 'CE':
+                RNN_output = T.nnet.softmax(lin_output)
+                cost_t = T.nnet.categorical_crossentropy(RNN_output, y_t).mean()
+                acc_t =(T.eq(T.argmax(RNN_output, axis=-1), T.argmax(y_t, axis=-1))).mean(dtype=theano.config.floatX)
+            elif loss_function == 'MSE':
+                cost_t = ((lin_output - y_t)**2).mean()
+                acc_t = theano.shared(np.float32(0.0))
+        else:
+            cost_t = theano.shared(np.float32(0.0))
+            acc_t = theano.shared(np.float32(0.0))
+        
+        return h_t, cost_t, acc_t
+
+
+
+
+
+
+      with tf.variable_scope(scope or type(self).__name__):  # "JZS1Cell"
+        with tf.variable_scope("UnitaryGates"):  # Reset gate and update gate.
+
+
+          # We start with bias of 1.0 to not reset and not update.
+          '''First, we will start with the hidden linear transform
+          W = D3R2F-1D2PermR1FD1'''
+          step1 = times_diag(h_prev, n_hidden, theta[0,:])
+          step2 = step1
+  #        step2 = do_fft(step1, n_hidden)
+          step3 = times_reflection(step2, n_hidden, reflection[0,:])
+          step4 = vec_permutation(step3, n_hidden, index_permute)
+          step5 = times_diag(step4, n_hidden, theta[1,:])
+          step6 = step5
+  #        step6 = do_ifft(step5, n_hidden)
+          step7 = times_reflection(step6, n_hidden, reflection[1,:])
+          step8 = times_diag(step7, n_hidden, theta[2,:])     
+          step9 = scale_diag(step8, n_hidden, scale)
+
+          hidden_lin_output = step9
+
+          z = tf.sigmoid(linear.linear([inputs], 
+                            self._num_units, True, 1.0))
+
+          '''equation 2 r = sigm(WxrXt+Whrht+Br), h_t is the previous state'''
+
+          r = tf.sigmoid((linear.linear([inputs,state]
+                            self._num_units, True, 1.0)))
+          '''equation 3'''
+
+          component_0 = linear.linear([r*state],
+                            self._num_units, True)
+          component_1 = tf.tanh(tf.tanh(inputs) + component_0)
+          component_2 = component_1*z
+          component_3 = state*(1 - z)
+
+          h_t = component_2 + component_3
+
+          h_t = tf.concat(concat_dim = 1,[nonlin_output_re, 
+                             nonlin_output_im]) #I know here you need to concatenate the real and imaginary parts
+
+
+        return h_t, h_t #there is only one hidden state output to keep track of. 
+        #This makes it more mem efficient than LSTM
 
 
 

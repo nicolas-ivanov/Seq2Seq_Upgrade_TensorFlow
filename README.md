@@ -13,7 +13,7 @@ from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import seq2seq_enhanced as sse
 Main Features Include:
 
 - Averaging Hidden States During Decoding, Allows you to set ratio of last hidden state to mean hidden state
-- Different GRU's and LSTM's layers on different GPU's
+- Different RNN layers on different GPU's
 - GRU Mutants from [Jozefowicz et al. paper](http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf)
 
 Currently Working On:
@@ -50,12 +50,9 @@ To call in GRU for gpu 0, simply call in the class
 
 `rnn_cell_enhanced.GRUCell(size, gpu_number = 0)`
 
-For GPU 1,
-
-GRUCell_GPU1 instead of GRUCell, etc.
 
 ```python      
-from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import rnn_cell_enhanced```
+from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import rnn_cell_enhanced
 
 #assuming you're using two gpu's
 first_layer = rnn_cell_enhanced.GRUCell(size, gpu_for_layer = 0)
