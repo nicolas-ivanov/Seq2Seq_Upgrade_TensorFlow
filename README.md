@@ -27,8 +27,22 @@ You will find many, *many* comments in the code. Just like you guys, I'm still v
 Lastly, I'm still have much to learn, so I apologize for mistakes in advance. I welcome pull requests and any help. 
 
 
+##Warning -- Import All RNN Materials from Seq2Seq_Upgrade_Tensorflow Only!
+If you are using Seq2Seq_Upgrade_Tensorflow, please do not import:
+- rnn.py
+- rnn_cell.py
+- seq2seq.py
 
-##Averaging Hidden States
+from the regular tensor flow! instead import:
+
+- rnn_enhanced.py
+- rnn_cell_enhanced.py
+- seq2seq_enhanced.py
+
+from Seq2Seq_Upgrade_Tensorflow. Otherwise class inheritance will be thrown off, and you will get an `isinstance` error!
+
+
+##Averaging Hidden States -- Working
 
 Simply call in:
 
@@ -44,7 +58,7 @@ For example, an `average_hidden_state_influence = .75` means 75% of the hidden s
 
 
 
-##Different RNN Layers on Multiple GPU's
+##Different RNN Layers on Multiple GPU's -- Working
 
 To call in GRU for gpu 0, simply call in the class
 
@@ -63,7 +77,7 @@ cell = rnn_cell.MultiRNNCell(([first_layer]*(num_layers/2)) + ([second_layer]*(n
 ```
 
 
-##GRU Mutants (from Jozefowicz et al.)
+##GRU Mutants (from Jozefowicz et al.) -- Working
 
 These mutants do better in some seq2seq tasks. Memory wise, they approximately the same as GRU.
 
