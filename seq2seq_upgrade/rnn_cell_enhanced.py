@@ -185,6 +185,48 @@ class UnitaryRNNCell(RNNCell):
         return h_t, h_t #there is only one hidden state output to keep track of. 
         #This makes it more mem efficient than LSTM
 
+class GRUCell_junkcopy(RNNCell):
+  """Junk copy of a rnn to experiment with"""
+
+  def __init__(self, num_units, gpu_for_layer = 0):
+    self._num_units = num_units
+    self._gpu_for_layer = gpu_for_layer
+
+
+  @property
+  def input_size(self):
+    return self._num_units
+
+  @property
+  def output_size(self):
+    return self._num_units
+
+  @property
+  def state_size(self):
+    return self._num_units
+
+  def __call__(self, inputs, state,scope=None):
+    with tf.device("/gpu:"+str(self._gpu_for_layer)):
+
+      """Gated JUNK COPY HERE JUNK COPY HERE JUNK COPY HERE recurrent unit (GRU) with nunits cells."""
+      with tf.variable_scope(scope or type(self).__name__):  # "GRUCell"
+        with tf.variable_scope("Gates"):  # Reset gate and update gate.
+          # We start with bias of 1.0 to not reset and not udpate.
+          z = tf.sigmoid(linear.linear([inputs], 
+                            self._num_units, True, 1.0))
+
+        with tf.variable_scope("Testing"):
+          r, u = tf.split(1, 2, linear.linear([inputs],
+                                             2 * self._num_units, True, 1.0))
+          r, u = tf.sigmoid(r), tf.sigmoid(u)
+          ranvar = 4
+          pop = tf.sigmoid(r)
+        with tf.variable_scope("Candidate"):
+          c = tf.tanh(linear.linear([inputs, r * state], self._num_units, True))
+        new_h = u * state + (1 - u) * c
+      return new_h, new_h
+
+      '''nick, notice that for the gru, the output and the hidden state are literally the same thing'''
 
 
 
@@ -211,22 +253,21 @@ class JZS1Cell(RNNCell):
     with tf.device("/gpu:"+str(self._gpu_for_layer)):
       """JZS1, mutant 1 with n units cells."""
       with tf.variable_scope(scope or type(self).__name__):  # "JZS1Cell"
-        with tf.variable_scope("Gates"):  # Reset gate and update gate.
+        with tf.variable_scope("Zinput"):  # Reset gate and update gate.
           # We start with bias of 1.0 to not reset and not update.
           '''equation 1 z = sigm(WxzXt+Bz), x_t is inputs'''
 
           z = tf.sigmoid(linear.linear([inputs], 
-                            self._num_units, True, 1.0))
-
+                            self._num_units, True, 1.0)) 
+        with tf.variable_scope("Rinput"):
           '''equation 2 r = sigm(WxrXt+Whrht+Br), h_t is the previous state'''
 
           r = tf.sigmoid((linear.linear([inputs,state],
                             self._num_units, True, 1.0)))
           '''equation 3'''
-
         with tf.variable_scope("Candidate"):
-          component_0 = linear.linear([r*state],
-                            self._num_units, True)
+          component_0 = linear.linear([r*state], 
+                            self._num_units, True) 
           component_1 = tf.tanh(tf.tanh(inputs) + component_0)
           component_2 = component_1*z
           component_3 = state*(1 - z)
@@ -260,18 +301,19 @@ class JZS2Cell(RNNCell):
     with tf.device("/gpu:"+str(self._gpu_for_layer)):
       """JZS2, mutant 2 with n units cells."""
       with tf.variable_scope(scope or type(self).__name__):  # "JZS1Cell"
-        with tf.variable_scope("JZS2Gates"):  # Reset gate and update gate.
-          # We start with bias of 1.0 to not reset and not update.
+        with tf.variable_scope("Zinput"):  # Reset gate and update gate.
           '''equation 1'''
 
           z = tf.sigmoid(linear.linear([inputs, state], 
                             self._num_units, True, 1.0))
 
           '''equation 2 '''
-
+        with tf.variable_scope("Rinput"):
           r = tf.sigmoid(inputs+(linear.linear([state],
                             self._num_units, True, 1.0)))
           '''equation 3'''
+
+        with tf.variable_scope("Candidate"):
 
           component_0 = linear.linear([state*r,inputs],
                             self._num_units, True)
@@ -279,9 +321,9 @@ class JZS2Cell(RNNCell):
           component_2 = (tf.tanh(component_0))*z
           component_3 = state*(1 - z)
 
-          h_t = component_2 + component_3
+        h_t = component_2 + component_3
 
-        return h_t, h_t #there is only one hidden state output to keep track of. 
+      return h_t, h_t #there is only one hidden state output to keep track of. 
         #This makes it more mem efficient than LSTM
 
 class JZS3Cell(RNNCell):
@@ -307,7 +349,7 @@ class JZS3Cell(RNNCell):
     with tf.device("/gpu:"+str(self._gpu_for_layer)):
       """JZS3, mutant 2 with n units cells."""
       with tf.variable_scope(scope or type(self).__name__):  # "JZS1Cell"
-        with tf.variable_scope("JZS3Gates"):  # Reset gate and update gate.
+        with tf.variable_scope("Zinput"):  # Reset gate and update gate.
           # We start with bias of 1.0 to not reset and not update.
           '''equation 1'''
 
@@ -315,21 +357,21 @@ class JZS3Cell(RNNCell):
                             self._num_units, True, 1.0))
 
           '''equation 2'''
-
+        with tf.variable_scope("Rinput"):
           r = tf.sigmoid(linear.linear([inputs, state],
                             self._num_units, True, 1.0))
           '''equation 3'''
-
+        with tf.variable_scope("Candidate"):
           component_0 = linear.linear([state*r,inputs],
                             self._num_units, True)
           
           component_2 = (tf.tanh(component_0))*z
           component_3 = state*(1 - z)
 
-          h_t = component_2 + component_3
+        h_t = component_2 + component_3
 
-        return h_t, h_t #there is only one hidden state output to keep track of. 
-        #This makes it more mem efficient than LSTM
+      return h_t, h_t #there is only one hidden state output to keep track of. 
+      #This makes it more mem efficient than LSTM
 
 
 

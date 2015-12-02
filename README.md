@@ -42,7 +42,7 @@ from the regular tensor flow! instead import:
 from Seq2Seq_Upgrade_Tensorflow. Otherwise class inheritance will be thrown off, and you will get an `isinstance` error!
 
 
-##Averaging Hidden States -- Not Tested Yet
+##Averaging Hidden States -- Testing
 
 Simply call in:
 
@@ -77,7 +77,7 @@ cell = rnn_cell.MultiRNNCell(([first_layer]*(num_layers/2)) + ([second_layer]*(n
 ```
 
 
-##GRU Mutants (from Jozefowicz et al.) -- Not Tested Yet
+##GRU Mutants (from Jozefowicz et al.) -- Working
 
 These mutants do better in some seq2seq tasks. Memory wise, they approximately the same as GRU.
 
