@@ -170,7 +170,7 @@ class UnitaryRNNCell(RNNCell):
           r = tf.sigmoid((linear.linear([inputs,state],
                             self._num_units, True, 1.0)))
           '''equation 3'''
-
+        with tf.variable_scope("Candidate"):
           component_0 = linear.linear([r*state],
                             self._num_units, True)
           component_1 = tf.tanh(tf.tanh(inputs) + component_0)
@@ -211,7 +211,7 @@ class JZS1Cell(RNNCell):
     with tf.device("/gpu:"+str(self._gpu_for_layer)):
       """JZS1, mutant 1 with n units cells."""
       with tf.variable_scope(scope or type(self).__name__):  # "JZS1Cell"
-        with tf.variable_scope("JZS1Gates"):  # Reset gate and update gate.
+        with tf.variable_scope("Gates"):  # Reset gate and update gate.
           # We start with bias of 1.0 to not reset and not update.
           '''equation 1 z = sigm(WxzXt+Bz), x_t is inputs'''
 
@@ -224,16 +224,17 @@ class JZS1Cell(RNNCell):
                             self._num_units, True, 1.0)))
           '''equation 3'''
 
+        with tf.variable_scope("Candidate"):
           component_0 = linear.linear([r*state],
                             self._num_units, True)
           component_1 = tf.tanh(tf.tanh(inputs) + component_0)
           component_2 = component_1*z
           component_3 = state*(1 - z)
 
-          h_t = component_2 + component_3
+        h_t = component_2 + component_3
 
-        return h_t, h_t #there is only one hidden state output to keep track of. 
-        #This makes it more mem efficient than LSTM
+      return h_t, h_t #there is only one hidden state output to keep track of. 
+      #This makes it more mem efficient than LSTM
 
 
 class JZS2Cell(RNNCell):
@@ -361,8 +362,6 @@ class GRUCell(RNNCell):
           # We start with bias of 1.0 to not reset and not udpate.
           r, u = tf.split(1, 2, linear.linear([inputs, state],
                                               2 * self._num_units, True, 1.0))
-          
-          "linear.linear yields a 2d tensor plus a bias term at the end. u is the bias term."
           r, u = tf.sigmoid(r), tf.sigmoid(u)
         with tf.variable_scope("Candidate"):
           c = tf.tanh(linear.linear([inputs, r * state], self._num_units, True))
