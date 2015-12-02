@@ -12,8 +12,10 @@ from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
 
 from tensorflow.models.rnn import linear
-from tensorflow.models.rnn import rnn
-from tensorflow.models.rnn import rnn_cell
+# from tensorflow.models.rnn import rnn
+# from tensorflow.models.rnn import rnn_cell
+from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import rnn_enhanced as rnn
+from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import rnn_cell_enhanced as rnn_cell
 
 import cf
 

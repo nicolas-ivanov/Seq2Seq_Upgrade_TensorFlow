@@ -11,19 +11,7 @@ import tensorflow as tf
 
 from tensorflow.models.rnn import linear
 
-import unitary_rnn_library as url
-
-'''
-
-To call in GRU for gpu 0, simply call in the class
-
-GRUCell_GPU0 instead of GRUCell
-
-For GPU 1,
-
-GRUCell_GPU1 instead of GRUCell, etc.'''
-
-
+# import unitary_rnn_library as url
 
 
 class RNNCell(object):
@@ -136,6 +124,7 @@ class UnitaryRNNCell(RNNCell):
   def __init__(self, num_units, gpu_for_layer = 0):
     self._num_units = num_units
     self._gpu_for_layer = gpu_for_layer
+  
 
   @property #these properities you may need to modify for the unitary part. Double for imaginary parts. not sure yet though.
   def input_size(self):
@@ -149,69 +138,9 @@ class UnitaryRNNCell(RNNCell):
   def state_size(self):
     return self._num_units
 
-  def __call__(self, inputs, state, gpu_number = self._gpu_for_layer, scope=None):
-    with tf.device("/gpu:"+str(gpu_number)):
-
-
-   def recurrence(x_t, y_t, h_prev, cost_prev, acc_prev, theta, V_re, V_im, hidden_bias, scale, out_bias, U):  
-
-        # Compute hidden linear transform
-        step1 = times_diag(h_prev, n_hidden, theta[0,:])
-        step2 = step1
-#        step2 = do_fft(step1, n_hidden)
-        step3 = times_reflection(step2, n_hidden, reflection[0,:])
-        step4 = vec_permutation(step3, n_hidden, index_permute)
-        step5 = times_diag(step4, n_hidden, theta[1,:])
-        step6 = step5
-#        step6 = do_ifft(step5, n_hidden)
-        step7 = times_reflection(step6, n_hidden, reflection[1,:])
-        step8 = times_diag(step7, n_hidden, theta[2,:])     
-        step9 = scale_diag(step8, n_hidden, scale)
-        
-        hidden_lin_output = step9
-        
-        # Compute data linear transform
-        data_lin_output_re = T.dot(x_t, V_re)
-        data_lin_output_im = T.dot(x_t, V_im)
-        data_lin_output = T.concatenate([data_lin_output_re, data_lin_output_im], axis=1)
-        
-        # Total linear output        
-        lin_output = hidden_lin_output + data_lin_output
-        lin_output_re = lin_output[:, :n_hidden]
-        lin_output_im = lin_output[:, n_hidden:] 
-
-
-        # Apply non-linearity ----------------------------
-
-
-        # scale RELU nonlinearity
-        modulus = T.sqrt(lin_output_re ** 2 + lin_output_im ** 2)
-        rescale = T.maximum(modulus + hidden_bias.dimshuffle('x',0), 0.) / (modulus + 1e-5)
-        nonlin_output_re = lin_output_re * rescale
-        nonlin_output_im = lin_output_im * rescale
-
-        h_t = T.concatenate([nonlin_output_re, 
-                             nonlin_output_im], axis=1) 
-        if out_every_t:
-            lin_output = T.dot(h_t, U) + out_bias.dimshuffle('x', 0)
-            if loss_function == 'CE':
-                RNN_output = T.nnet.softmax(lin_output)
-                cost_t = T.nnet.categorical_crossentropy(RNN_output, y_t).mean()
-                acc_t =(T.eq(T.argmax(RNN_output, axis=-1), T.argmax(y_t, axis=-1))).mean(dtype=theano.config.floatX)
-            elif loss_function == 'MSE':
-                cost_t = ((lin_output - y_t)**2).mean()
-                acc_t = theano.shared(np.float32(0.0))
-        else:
-            cost_t = theano.shared(np.float32(0.0))
-            acc_t = theano.shared(np.float32(0.0))
-        
-        return h_t, cost_t, acc_t
-
-
-
-
-
-
+  def __call__(self, inputs, state, scope=None):
+    with tf.device("/gpu:"+str(self._gpu_for_layer)):
+      print('testing')
       with tf.variable_scope(scope or type(self).__name__):  # "JZS1Cell"
         with tf.variable_scope("UnitaryGates"):  # Reset gate and update gate.
 
@@ -238,7 +167,7 @@ class UnitaryRNNCell(RNNCell):
 
           '''equation 2 r = sigm(WxrXt+Whrht+Br), h_t is the previous state'''
 
-          r = tf.sigmoid((linear.linear([inputs,state]
+          r = tf.sigmoid((linear.linear([inputs,state],
                             self._num_units, True, 1.0)))
           '''equation 3'''
 
@@ -250,8 +179,7 @@ class UnitaryRNNCell(RNNCell):
 
           h_t = component_2 + component_3
 
-          h_t = tf.concat(concat_dim = 1,[nonlin_output_re, 
-                             nonlin_output_im]) #I know here you need to concatenate the real and imaginary parts
+          h_t = tf.concat(concat_dim = 1, value =[nonlin_output_re, nonlin_output_im]) #I know here you need to concatenate the real and imaginary parts
 
 
         return h_t, h_t #there is only one hidden state output to keep track of. 
@@ -279,8 +207,8 @@ class JZS1Cell(RNNCell):
   def state_size(self):
     return self._num_units
 
-  def __call__(self, inputs, state, gpu_number = self._gpu_for_layer, scope=None):
-    with tf.device("/gpu:"+str(gpu_number)):
+  def __call__(self, inputs, state, scope=None):
+    with tf.device("/gpu:"+str(self._gpu_for_layer)):
       """JZS1, mutant 1 with n units cells."""
       with tf.variable_scope(scope or type(self).__name__):  # "JZS1Cell"
         with tf.variable_scope("JZS1Gates"):  # Reset gate and update gate.
@@ -292,7 +220,7 @@ class JZS1Cell(RNNCell):
 
           '''equation 2 r = sigm(WxrXt+Whrht+Br), h_t is the previous state'''
 
-          r = tf.sigmoid((linear.linear([inputs,state]
+          r = tf.sigmoid((linear.linear([inputs,state],
                             self._num_units, True, 1.0)))
           '''equation 3'''
 
@@ -327,8 +255,8 @@ class JZS2Cell(RNNCell):
   def state_size(self):
     return self._num_units
 
-  def __call__(self, inputs, state, gpu_number = self._gpu_for_layer, scope=None):
-    with tf.device("/gpu:"+str(gpu_number)):
+  def __call__(self, inputs, state, scope=None):
+    with tf.device("/gpu:"+str(self._gpu_for_layer)):
       """JZS2, mutant 2 with n units cells."""
       with tf.variable_scope(scope or type(self).__name__):  # "JZS1Cell"
         with tf.variable_scope("JZS2Gates"):  # Reset gate and update gate.
@@ -340,7 +268,7 @@ class JZS2Cell(RNNCell):
 
           '''equation 2 '''
 
-          r = tf.sigmoid(inputs+(linear.linear([state]
+          r = tf.sigmoid(inputs+(linear.linear([state],
                             self._num_units, True, 1.0)))
           '''equation 3'''
 
@@ -374,8 +302,8 @@ class JZS3Cell(RNNCell):
   def state_size(self):
     return self._num_units
 
-  def __call__(self, inputs, state, gpu_number = self._gpu_for_layer, scope=None):
-    with tf.device("/gpu:"+str(gpu_number)):
+  def __call__(self, inputs, state, scope=None):
+    with tf.device("/gpu:"+str(self._gpu_for_layer)):
       """JZS3, mutant 2 with n units cells."""
       with tf.variable_scope(scope or type(self).__name__):  # "JZS1Cell"
         with tf.variable_scope("JZS3Gates"):  # Reset gate and update gate.
@@ -387,7 +315,7 @@ class JZS3Cell(RNNCell):
 
           '''equation 2'''
 
-          r = tf.sigmoid(linear.linear([inputs, state]
+          r = tf.sigmoid(linear.linear([inputs, state],
                             self._num_units, True, 1.0))
           '''equation 3'''
 
@@ -424,8 +352,8 @@ class GRUCell(RNNCell):
   def state_size(self):
     return self._num_units
 
-  def __call__(self, inputs, state, gpu_number = self._gpu_for_layer,scope=None):
-    with tf.device("/gpu:"+str(gpu_number)):
+  def __call__(self, inputs, state,scope=None):
+    with tf.device("/gpu:"+str(self._gpu_for_layer)):
 
       """Gated recurrent unit (GRU) with nunits cells."""
       with tf.variable_scope(scope or type(self).__name__):  # "GRUCell"
@@ -473,8 +401,8 @@ class BasicLSTMCell(RNNCell):
   def state_size(self):
     return 2 * self._num_units
 
-  def __call__(self, inputs, state, gpu_number = self._gpu_for_layer, scope=None):
-    with tf.device("/gpu:"+str(gpu_number)):
+  def __call__(self, inputs, state, scope=None):
+    with tf.device("/gpu:"+str(self._gpu_for_layer)):
       """Long short-term memory cell (LSTM)."""
       with tf.variable_scope(scope or type(self).__name__):  # "BasicLSTMCell"
         # Parameters of gates are concatenated into one multiply for efficiency.
@@ -572,9 +500,9 @@ class LSTMCell(RNNCell):
   def state_size(self):
     return self._state_size
 
-  def __call__(self, input_, state, gpu_number = self._gpu_for_layer, scope=None):
+  def __call__(self, input_, state, scope=None):
     
-      with tf.device("/gpu:"+str(gpu_number)):
+      with tf.device("/gpu:"+str(self._gpu_for_layer)):
 
         """Run one step of LSTM.
 
