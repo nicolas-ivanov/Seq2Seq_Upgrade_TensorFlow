@@ -27,13 +27,16 @@ You will find many, *many* comments in the code. Just like you guys, I'm still v
 Lastly, I'm still have much to learn, so I apologize for mistakes in advance. I welcome pull requests and any help. 
 
 
-##Warning -- Import All RNN Materials from Seq2Seq_Upgrade_Tensorflow Only!
+##Using Seq2Seq Upgrade
+
+Import All RNN Materials from Seq2Seq_Upgrade_Tensorflow Only!
+
 If you are using Seq2Seq_Upgrade_Tensorflow, please do not import:
 - rnn.py
 - rnn_cell.py
 - seq2seq.py
 
-from the regular tensor flow! instead import:
+from the regular tensorflow. Instead import:
 
 - rnn_enhanced.py
 - rnn_cell_enhanced.py
