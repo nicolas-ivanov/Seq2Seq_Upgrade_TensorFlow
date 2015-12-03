@@ -17,10 +17,16 @@ Main Features Include:
 - GRU Mutants from [Jozefowicz et al. paper](http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf)
 
 Currently Working On:
-- Curriculum Learning (In Progress)
+
+- Unitary RNN (will take at least 2 weeks) (http://arxiv.org/abs/1511.06464)
+- Stabilizing Activations (http://arxiv.org/pdf/1511.08400.pdf)
 - Temperature Integration (Almost Done)
-- uRNN (Ummm...gonna take a while)
-- Async Loading Data during training (In Progress)
+
+Other Features That Might Happen If There's Time:
+
+- Async Loading Data during training 
+- Curriculum Learning 
+- Removing Biases From GRU and LSTM (some reports that it improves performance)
 
 You will find many, *many* comments in the code. Just like you guys, I'm still very much learning and it helps me to comment as much as possible. 
 
@@ -77,6 +83,15 @@ second_layer = rnn_cell_enhanced.GRUCell(size, gpu_for_layer = 1)
 cell = rnn_cell.MultiRNNCell(([first_layer]*(num_layers/2)) + ([second_layer]*(num_layers/2)))
 
 #notice that we put consecutive layers on the same gpu. Also notice that you need to use an even number of layers.
+```
+
+You can apply dropout on a specific GPU as well:
+
+```python
+from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import rnn_cell_enhanced
+
+first_layer = rnn_cell_enhanced.GRUCell(size, gpu_for_layer = 1)
+dropout_first_layer = rnn_cell_enhanced.DropoutWrapper(first_layer, output_keep_prob = 0.80, gpu_for_layer = 1)
 ```
 
 

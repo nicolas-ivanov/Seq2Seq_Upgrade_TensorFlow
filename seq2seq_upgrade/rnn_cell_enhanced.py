@@ -80,6 +80,8 @@ class BasicRNNCell(RNNCell):
 
   def __init__(self, num_units):
     self._num_units = num_units
+    self._gpu_for_layer = gpu_for_layer
+
 
   @property
   def input_size(self):
@@ -95,27 +97,91 @@ class BasicRNNCell(RNNCell):
 
   def __call__(self, inputs, state, scope=None):
     """Most basic RNN: output = new_state = tanh(W * input + U * state + B)."""
-    with tf.variable_scope(scope or type(self).__name__):  # "BasicRNNCell"
-      output = tf.tanh(linear.linear([inputs, state], self._num_units, True))
-    return output, output
-
-
-    def recurrence(x_t, y_t, h_prev, cost_prev, acc_prev, V, W, hidden_bias, out_mat, out_bias):
-        h_t = T.tanh(T.dot(h_prev, W) + T.dot(x_t, V) + hidden_bias.dimshuffle('x', 0))
-
-        #okay nick, so when they do h_prev, that is the previous hidden state, and i guess w and v are the same in tf?
-
-
-        #something important to note is that the linear output is sent to a softmax afterwards. -- linear output
-        #is directly inserted into the softmax
+    with tf.device("/gpu:"+str(self._gpu_for_layer)):
+      with tf.variable_scope(scope or type(self).__name__):  # "BasicRNNCell"
+        output = tf.tanh(linear.linear([inputs, state], self._num_units, True))
+      return output, output
 
 
 
+class StabilizingActivationsWrapper(RNNCell):
+  """Stabilizing Regulator From http://arxiv.org/pdf/1511.08400.pdf"""
+
+  def __init__(self, cell, norm_stabilizer = 50, regularize_hidden_state= False, regularize_output= True, gpu_for_layer = 0,
+               seed=None):
+    """Create a cell with added input and/or output dropout.
+
+    Dropout is never used on the state.
+
+    Args:
+      cell: an RNNCell, a projection to output_size is added to it.
+      input_keep_prob: unit Tensor or float between 0 and 1, input keep
+        probability; if it is float and 1, no input dropout will be added.
+      output_keep_prob: unit Tensor or float between 0 and 1, output keep
+        probability; if it is float and 1, no output dropout will be added.
+      seed: (optional) integer, the randomness seed.
+
+    Raises:
+      TypeError: if cell is not an RNNCell.
+      ValueError: if keep_prob is not between 0 and 1.
+    """
+
+    if not isinstance(cell, RNNCell):
+      raise TypeError("The parameter cell is not a RNNCell.")
+    if (isinstance(norm_stabilizer, float) and
+        not (norm_stabilizer >= 0.0)):
+      raise ValueError("Parameter input_keep_prob must be 0 or greater: %d"
+                       % input_keep_prob)
+    self._cell = cell
+    self._norm_stabilizer = norm_stabilizer
+    self._regularize_hidden_state = regularize_hidden_state
+    self._regularize_output = regularize_output
+    self._gpu_for_layer = gpu_for_layer
+
+  @property
+  def input_size(self):
+    return self._cell.input_size
+
+  @property
+  def output_size(self):
+    return self._cell.output_size
+
+  @property
+  def state_size(self):
+    return self._cell.state_size
+
+  def __call__(self, inputs, state):
+    with tf.device("/gpu:"+str(self._gpu_for_layer)):
+
+      """Run the vanilla cell first"""
+      output, new_state = self._cell(inputs, state)
+      stabilized_hidden_state = new_state
+      stabilized_output = output
+
+
+      if self._regularize_hidden_state:
+        '''regularize hidden state'''
+        step1 = tf.square(tf.sqrt(new_state)- tf.sqrt(state))
+        stabilized_hidden_state =self.norm_stabilizer*step1
+
+      if self._regularize_output:
+        '''regularize output'''
+        step1 = tf.square(tf.sqrt(output)- tf.sqrt(inputs))
+        stabilized_output = self.norm_stabilizer*step1
+
+      return stabilized_output, stabilized_hidden_state
 
 
 
 
-
+   if (not isinstance(self._input_keep_prob, float) or
+        self._input_keep_prob < 1):
+      inputs = tf.nn.dropout(inputs, self._input_keep_prob, seed=self._seed)
+    output, new_state = self._cell(inputs, state)
+    if (not isinstance(self._output_keep_prob, float) or
+        self._output_keep_prob < 1):
+      output = tf.nn.dropout(output, self._output_keep_prob, seed=self._seed)
+    return output, new_state
 
 '''Note -- UnitaryRNNCell Is Still Being Developed -- It Will NOT Work If You Call It'''
 class UnitaryRNNCell(RNNCell):
@@ -205,7 +271,7 @@ class GRUCell_junkcopy(RNNCell):
   def state_size(self):
     return self._num_units
 
-  def __call__(self, inputs, state,scope=None):
+  def __call__(self, inputs, state, scope=None):
     with tf.device("/gpu:"+str(self._gpu_for_layer)):
 
       """Gated JUNK COPY HERE JUNK COPY HERE JUNK COPY HERE recurrent unit (GRU) with nunits cells."""
@@ -722,7 +788,7 @@ class DropoutWrapper(RNNCell):
   """Operator adding dropout to inputs and outputs of the given cell."""
 
   def __init__(self, cell, input_keep_prob=1.0, output_keep_prob=1.0,
-               seed=None):
+               seed=None, gpu_for_layer = 0):
     """Create a cell with added input and/or output dropout.
 
     Dropout is never used on the state.
@@ -753,6 +819,7 @@ class DropoutWrapper(RNNCell):
     self._input_keep_prob = input_keep_prob
     self._output_keep_prob = output_keep_prob
     self._seed = seed
+    self._gpu_for_layer = gpu_for_layer
 
   @property
   def input_size(self):
@@ -768,14 +835,15 @@ class DropoutWrapper(RNNCell):
 
   def __call__(self, inputs, state):
     """Run the cell with the declared dropouts."""
-    if (not isinstance(self._input_keep_prob, float) or
-        self._input_keep_prob < 1):
-      inputs = tf.nn.dropout(inputs, self._input_keep_prob, seed=self._seed)
-    output, new_state = self._cell(inputs, state)
-    if (not isinstance(self._output_keep_prob, float) or
-        self._output_keep_prob < 1):
-      output = tf.nn.dropout(output, self._output_keep_prob, seed=self._seed)
-    return output, new_state
+    with tf.device("/gpu:"+str(self._gpu_for_layer)):
+      if (not isinstance(self._input_keep_prob, float) or
+          self._input_keep_prob < 1):
+        inputs = tf.nn.dropout(inputs, self._input_keep_prob, seed=self._seed)
+      output, new_state = self._cell(inputs, state)
+      if (not isinstance(self._output_keep_prob, float) or
+          self._output_keep_prob < 1):
+        output = tf.nn.dropout(output, self._output_keep_prob, seed=self._seed)
+      return output, new_state
 
 
 class EmbeddingWrapper(RNNCell):
