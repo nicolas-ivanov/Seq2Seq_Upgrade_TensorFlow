@@ -258,9 +258,20 @@ def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
   Returns:
     outputs: A list of the same length as decoder_inputs of 2D Tensors with
       shape [batch_size x num_decoder_symbols] containing the generated outputs.
+
+      notice nick, the list is the sequence length!!!!!!!
+
+      so outputs is a 3d tensor total -- and it has te outputs batch size x 512
+
+
     states: The state of each decoder cell in each time-step. This is a list
       with length len(decoder_inputs) -- one item for each time-step.
       Each item is a 2D Tensor of shape [batch_size x cell.state_size].
+
+      #definitely look at this -- this is also a 3d tensor
+      each item has a 2d tensor and its shape is batch size
+      times the state size of the cell -- so you're doing all the
+      batches at once...okay...
   """
   with tf.variable_scope(scope or "embedding_attention_seq2seq"):
     # Encoder.
@@ -314,7 +325,6 @@ def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
       states = tf.control_flow_ops.cond(feed_previous,
                                       lambda: states1, lambda: states2)
 
-      #where is the backprop? I don't know if its here or not.    
 
       return outputs, states
 
@@ -325,7 +335,7 @@ def sequence_loss_by_example(logits, targets, weights, num_decoder_symbols,
   """Weighted cross-entropy loss for a sequence of logits (per example).
 
   Args:
-    logits: list of 2D Tensors of shape [batch_size x num_decoder_symbols].
+    logits: list of 2D Tensors of shape [batch_size x num_decoder_symbols]. nick logits are 2d tensors
     targets: list of 1D batch-sized int32-Tensors of the same length as logits.
     weights: list of 1D batch-sized float-Tensors of the same length as logits.
     num_decoder_symbols: integer, number of decoder symbols (output classes).
@@ -337,6 +347,7 @@ def sequence_loss_by_example(logits, targets, weights, num_decoder_symbols,
 
   Returns:
     1D batch-sized float Tensor: the log-perplexity for each sequence.
+    notice here they take the ln(perplexity) -- which is why you get loss as you do
 
   Raises:
     ValueError: if len(logits) is different from len(targets) or len(weights).
@@ -348,7 +359,7 @@ def sequence_loss_by_example(logits, targets, weights, num_decoder_symbols,
                    "sequence_loss_by_example"):
     batch_size = tf.shape(targets[0])[0]
     log_perp_list = []
-    length = batch_size * num_decoder_symbols
+    length = batch_size * num_decoder_symbols #this represents the batch size x vocab size
     for i in xrange(len(logits)):
       if softmax_loss_function is None:
         # TODO(lukaszkaiser): There is no SparseCrossEntropy in TensorFlow, so
@@ -365,13 +376,16 @@ def sequence_loss_by_example(logits, targets, weights, num_decoder_symbols,
             logits[i], target, name="SequenceLoss/CrossEntropy{0}".format(i))
       else:
         crossent = softmax_loss_function(logits[i], targets[i])
-      log_perp_list.append(crossent * weights[i])
-    log_perps = tf.add_n(log_perp_list)
+      
+
+      log_perp_list.append(crossent * weights[i]) #this determines the cost I think?
+
+    log_perps = tf.add_n(log_perp_list) #this adds all the elements in the tensor together
     if average_across_timesteps:
-      total_size = tf.add_n(weights)
-      total_size += 1e-12  # Just to avoid division by 0 for all-0 weights.
-      log_perps /= total_size
-  return log_perps
+      total_size = tf.add_n(weights) #nick, this adds element wise all the of weights -- this produces just one number!
+      total_size += 1e-12  # Just to avoid division by 0 for all-0 weights. This is adding it to just one number! total_size = total_size + 1e-12
+      log_perps /= total_size #one number is produced here! this is equivalent to log_perps = log_perps/total_size
+  return log_perps + final_reg_cost #this is the natural log of your perplexity
 
 
 def sequence_loss(logits, targets, weights, num_decoder_symbols,
@@ -397,21 +411,51 @@ def sequence_loss(logits, targets, weights, num_decoder_symbols,
   Raises:
     ValueError: if len(logits) is different from len(targets) or len(weights).
   """
-  with tf.op_scope(logits + targets + weights, name, "sequence_loss"):
+  with tf.op_scope(logits + targets + weights, name, "sequence_loss"): #notice how they make a list for values
+  #this basically assures that entire operature occurs as one point in the graph -- really useful. 
+      '''reduce sum adds all of the elements in tensor to a single value'''
     cost = tf.reduce_sum(sequence_loss_by_example(
-        logits, targets, weights, num_decoder_symbols,
-        average_across_timesteps=average_across_timesteps,
-        softmax_loss_function=softmax_loss_function))
+          logits, targets, weights, num_decoder_symbols,
+          average_across_timesteps=average_across_timesteps,
+          softmax_loss_function=softmax_loss_function))
+
     if average_across_batch:
       batch_size = tf.shape(targets[0])[0]
-      return cost / tf.cast(batch_size, tf.float32)
+      return cost / tf.cast(batch_size, tf.float32) #cast makes the numbers in a certain formats. 
     else:
       return cost
 
 
+def norm_stabilizer_loss(bucket_states, norm_regularizer_factor = 50, name = None):
+  '''Will add a Norm Stabilizer Loss 
+
+    Args:
+  bucket_states: The state of each decoder cell in each time-step. This is a list
+      with length len(decoder_inputs) -- one item for each time-step.
+      Each item is a 2D Tensor of shape [batch_size x cell.state_size].
+
+  norm_regularizer_factor: The factor required to apply norm stabilization. Keep 
+  in mind that a larger factor will allow you to achieve a lower loss, but it will take
+  many more epochs to do so!
+
+    Returns:
+  final_reg_loss: One Scalar Value representing the loss averaged across the batch'''
+
+  with tf.op_scope(bucket_states, name, "norm_stabilizer_loss"):
+    batch_size = tf.shape(bucket_states[0])[0]
+    squared_sum = tf.zeros(tf.shape(bucket_states[0]),tf.float32)
+    for q in xrange(len(bucket_states)-1): #this represents the summation part from t to T
+      squared_sum = tf.add(squared_sum, tf.square(tf.sqrt(tf.sub(bucket_states[q+1]),tf.sqrt(bucket_states[q]))))
+    #We want to average across batch sizes and divide by T
+    final_reg_loss = norm_regularizer_factor*(tf.add_n(squared_sum)/((len(bucket_states))*(batch_size)))
+    return final_reg_loss
+
+
+
 def model_with_buckets(encoder_inputs, decoder_inputs, targets, weights,
                        buckets, num_decoder_symbols, seq2seq,
-                       softmax_loss_function=None, name=None):
+                       softmax_loss_function=None, name=None, norm_regularize_hidden_states = False,
+                       norm_regularize_logits = False, norm_regularizer_factor = 50):
   """Create a sequence-to-sequence model with support for bucketing.
 
   The seq2seq argument is a function that defines a sequence-to-sequence model,
@@ -452,6 +496,7 @@ def model_with_buckets(encoder_inputs, decoder_inputs, targets, weights,
   all_inputs = encoder_inputs + decoder_inputs + targets + weights
   losses = []
   outputs = []
+  out_hidden_states = [] #nick added this
   with tf.op_scope(all_inputs, name, "model_with_buckets"):
     for j in xrange(len(buckets)):
       if j > 0:
@@ -460,14 +505,28 @@ def model_with_buckets(encoder_inputs, decoder_inputs, targets, weights,
                                for i in xrange(buckets[j][0])]
       bucket_decoder_inputs = [decoder_inputs[i]
                                for i in xrange(buckets[j][1])]
-      bucket_outputs, _ = seq2seq(bucket_encoder_inputs,
-                                  bucket_decoder_inputs)
+      bucket_outputs, bucket_states = seq2seq(bucket_encoder_inputs,
+                                  bucket_decoder_inputs) #nick pay attention here -- you added bucket_states
       outputs.append(bucket_outputs)
 
       bucket_targets = [targets[i] for i in xrange(buckets[j][1])]
       bucket_weights = [weights[i] for i in xrange(buckets[j][1])]
-      losses.append(sequence_loss(
+
+
+      '''CALCULATE NORM REGULARIZE LOSS HERE'''
+      final_reg_loss = 0
+      if norm_regularize_hidden_states:
+        final_reg_loss = norm_stabilizer_loss(bucket_states, norm_regularizer_factor = norm_regularizer_factor)
+      if norm_regularize_logits:
+        final_reg_loss += norm_stabilizer_loss(bucket_outputs, norm_regularizer_factor = norm_regularizer_factor)
+
+      losses.append(final_reg_loss + sequence_loss(
           outputs[-1], bucket_targets, bucket_weights, num_decoder_symbols,
-          softmax_loss_function=softmax_loss_function))
+          softmax_loss_function=softmax_loss_function, norm_regularize = norm_regularize,
+          hidden_states = out_hidden_states[-1], norm_regularizer_factor = norm_regularizer_factor))
 
   return outputs, losses
+
+  #THE LOSSES is just for bucket listing! so you can add the losses together
+
+  '''outputs are considered logits, and the -1 gives a list of logits for that one bucket!'''

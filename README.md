@@ -12,14 +12,14 @@ from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import seq2seq_enhanced as sse
 
 Main Features Include:
 
-- Averaging Hidden States During Decoding, Allows you to set ratio of last hidden state to mean hidden state
 - Different RNN layers on different GPU's
-- GRU Mutants from [Jozefowicz et al. paper](http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf)
+- Regularizing RNNs by Stabilizing Activations -- [Krueger's paper](http://arxiv.org/pdf/1511.08400.pdf)
+- Averaging Hidden States During Decoding
+- GRU Mutants -- [Jozefowicz's paper](http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf)
 
 Currently Working On:
 
 - Unitary RNN (will take at least 2 weeks) (http://arxiv.org/abs/1511.06464)
-- Stabilizing Activations (http://arxiv.org/pdf/1511.08400.pdf)
 - Temperature Integration (Almost Done)
 
 Other Features That Might Happen If There's Time:
@@ -51,21 +51,6 @@ from the regular tensorflow. Instead import:
 from Seq2Seq_Upgrade_Tensorflow. Otherwise class inheritance will be thrown off, and you will get an `isinstance` error!
 
 
-##Averaging Hidden States -- Testing
-
-Simply call in:
-
-```python
-from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import seq2seq_enhanced as sse
-
-seq2seq_model = sse.embedding_attention_seq2seq(....,average_states = True, average_hidden_state_influence = 0.5)
-```
-
-Note that `average_hidden_state_influence` should be any real number between 0 and 1. The higher the number, the higher the percentage that the inputted hidden state will be influenced by the average hidden state.
-
-For example, an `average_hidden_state_influence = .75` means 75% of the hidden state will be the average hidden state and the remainder 25% of the hidden state will be the *last* hidden state. This allows you to choose how much you want the inputted hidden state to be affected by the previous timestep. 
-
-
 
 ##Different RNN Layers on Multiple GPU's -- Working
 
@@ -95,7 +80,32 @@ dropout_first_layer = rnn_cell_enhanced.DropoutWrapper(first_layer, output_keep_
 ```
 
 
-##GRU Mutants (from Jozefowicz et al.) -- Working
+##Norm Regularize Hidden States And Outputs -- Testing
+[Krueger's paper](http://arxiv.org/pdf/1511.08400.pdf)
+
+Adds an additional cost to regularize hidden state activations and/or output activations (logits).
+
+By default this feature is set to off. 
+
+To use:
+
+```python      
+from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import seq2seq_enhanced
+#to regularize both
+seq2seq_enhanced.model_with_buckets(...norm_regularize_hidden_states = True, 
+										norm_regularize_logits = True, norm_regularize_factor = 50)
+#to regularize one
+seq2seq_enhanced.model_with_buckets(...norm_regularize_hidden_states = True, 
+										norm_regularize_logits = False, norm_regularize_factor = 50)
+```
+
+`norm_regularizer_factor`: The factor required to apply norm stabilization. Keep 
+in mind that a larger factor will allow you to achieve a lower loss, but it will take
+many more epochs to do so!
+
+
+##GRU Mutants -- Working
+[Jozefowicz's paper](http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf)
 
 These mutants do better in some seq2seq tasks. Memory wise, they approximately the same as GRU.
 
@@ -113,3 +123,19 @@ Mutants are called in by:
 3. `rnn_cell_enhanced.JZS3Cell(size, gpu_for_layer = 2)`
 
 *Gpu arguments are not necessary. 
+
+
+##Averaging Hidden States -- Working
+Allows you to set ratio of last hidden state to mean hidden state
+
+Simply call in:
+
+```python
+from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import seq2seq_enhanced as sse
+
+seq2seq_model = sse.embedding_attention_seq2seq(....,average_states = True, average_hidden_state_influence = 0.5)
+```
+
+Note that `average_hidden_state_influence` should be any real number between 0 and 1. The higher the number, the higher the percentage that the inputted hidden state will be influenced by the average hidden state.
+
+For example, an `average_hidden_state_influence = .75` means 75% of the hidden state will be the average hidden state and the remainder 25% of the hidden state will be the *last* hidden state. This allows you to choose how much you want the inputted hidden state to be affected by the previous timestep. 
