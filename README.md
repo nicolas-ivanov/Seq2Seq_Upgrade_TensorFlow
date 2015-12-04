@@ -16,11 +16,11 @@ Main Features Include:
 - Regularizing RNNs by Stabilizing Activations -- [Krueger's paper](http://arxiv.org/pdf/1511.08400.pdf)
 - Averaging Hidden States During Decoding
 - GRU Mutants -- [Jozefowicz's paper](http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf)
+- Temperature Sampling During Decoding 
 
 Currently Working On:
 
 - Unitary RNN (will take at least 2 weeks) (http://arxiv.org/abs/1511.06464)
-- Temperature Integration (Almost Done)
 
 Other Features That Might Happen If There's Time:
 
