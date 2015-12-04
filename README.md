@@ -7,7 +7,7 @@ That's why there's this additional python package. This is meant to work in conj
 
 ```python
 sys.path.insert(0, os.environ['HOME']) #add the dir that you cloned to
-from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import seq2seq_enhanced as sse
+from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import seq2seq_enhanced, rnn_cell_enhanced
 ```
 
 Main Features Include:
@@ -125,7 +125,7 @@ Mutants are called in by:
 *Gpu arguments are not necessary. 
 
 
-##Averaging Hidden States -- Working
+##Averaging Hidden States -- Testing
 Allows you to set ratio of last hidden state to mean hidden state
 
 Simply call in:
@@ -139,3 +139,38 @@ seq2seq_model = sse.embedding_attention_seq2seq(....,average_states = True, aver
 Note that `average_hidden_state_influence` should be any real number between 0 and 1. The higher the number, the higher the percentage that the inputted hidden state will be influenced by the average hidden state.
 
 For example, an `average_hidden_state_influence = .75` means 75% of the hidden state will be the average hidden state and the remainder 25% of the hidden state will be the *last* hidden state. This allows you to choose how much you want the inputted hidden state to be affected by the previous timestep. 
+
+
+
+##Temperature Sampling During Decoding
+Allows you to use a temperature to alter the output of your softmax. 
+
+Higher temperature will result in more diversity in output, but more errors. Do not use this during training! Use this only while decoding after a model has been trained. 
+
+Note: This does not affect the internal decoding process at all. Rather, this is meant to replace the argmax function that is commonly used in greedy decoding.
+
+To use:
+
+```python
+from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import decoding_enhanced
+
+for each_temperature in [0.2, 0.4, 0.6, 0.8, 1.0, 1.5]:
+            outputs = []
+            for logit in output_logits:
+              select_word_number = int(decoding_enhanced.sample_with_temperature(logit[0], each_temperature))
+              outputs.append(select_word_number)
+
+
+            # If there is an EOS symbol in outputs, cut them at that point.
+            if data_utils.EOS_ID in outputs:
+              outputs = outputs[:outputs.index(data_utils.EOS_ID)]
+
+            print() #put extra space between input and output
+            print('--------Temperature is: ', each_temperature)
+            print("Output Sentence", sentence_num, "Below")
+            print(" ".join([rev_fr_vocab[output] for output in outputs])) #place space inbetween output here
+            print()
+```
+
+
+

@@ -10,6 +10,10 @@ import plotly.tools as tls
 import traceback
 
 
+'''this is a list of common functions that may be useful, but they are not necessary. They are not well organized'''
+
+
+
 '''beginning functions'''
 
 def beginning_function():

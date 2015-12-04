@@ -19,9 +19,10 @@ from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import rnn_cell_enhanced as rnn_
 
 import cf
 
-def average_hidden_states(decoder_states, average_hidden_state_influence = 0.5):
-  mean_decoder_states = np.mean(decoder_states)
-  final_decoder_state = ((1 - average_hidden_state_influence) * decoder_states[-1])+average_hidden_state_influence*mean_decoder_states
+def average_hidden_states(decoder_states, average_hidden_state_influence = 0.5, name = None):
+  with tf.op_scope(decoder_states + average_hidden_state_influence, name, "average_hidden_states"):
+    mean_decoder_states = tf.reduce_mean(decoder_states, 0) #nick double check the axis is right!
+    final_decoder_state = tf.add((1 - average_hidden_state_influence) * decoder_states[-1], average_hidden_state_influence*mean_decoder_states)
   return final_decoder_state
 
 def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
@@ -120,10 +121,15 @@ def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
       if i > 0:
         tf.get_variable_scope().reuse_variables()
       inp = decoder_inputs[i]
+
+      '''nick, you can implement sampling here by changing the input here! also curriculum learning too!'''
       # If loop_function is set, we use it instead of decoder_inputs.
       if loop_function is not None and prev is not None:
         with tf.variable_scope("loop_function", reuse=True):
-          inp = tf.stop_gradient(loop_function(prev, i))
+          inp = tf.stop_gradient(loop_function(prev, i)) #basically, stop_gradient doesn't allow inputs to be taken into account
+
+
+
       # Merge input and previous attentions into one vector of the right size.
       x = linear.linear([inp] + attns, cell.input_size, True)
       
@@ -293,17 +299,11 @@ def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
     if isinstance(feed_previous, bool): #this is saying you are decoding, feed-forward network
       '''nick, right here, you will find a broad if statement'''
 
-      if average_states:
-        return embedding_attention_decoder_average_states(
+      return embedding_attention_decoder(
           decoder_inputs, encoder_states[-1], attention_states, cell,
           num_decoder_symbols, num_heads, output_size, output_projection,
-          feed_previous, average_hidden_state_influence = average_hidden_state_influence)
-      else:
-        return embedding_attention_decoder(
-          decoder_inputs, encoder_states[-1], attention_states, cell,
-          num_decoder_symbols, num_heads, output_size, output_projection,
-          feed_previous)
-
+          feed_previous, average_states = average_states, average_hidden_state_influence = average_hidden_state_influence)
+    
     else:  # If feed_previous is a Tensor, we construct 2 graphs and use cond.
       '''nick, right here, you modify by doing a broad if statement'''
 
@@ -385,7 +385,7 @@ def sequence_loss_by_example(logits, targets, weights, num_decoder_symbols,
       total_size = tf.add_n(weights) #nick, this adds element wise all the of weights -- this produces just one number!
       total_size += 1e-12  # Just to avoid division by 0 for all-0 weights. This is adding it to just one number! total_size = total_size + 1e-12
       log_perps /= total_size #one number is produced here! this is equivalent to log_perps = log_perps/total_size
-  return log_perps + final_reg_cost #this is the natural log of your perplexity
+  return log_perps#this is the natural log of your perplexity
 
 
 def sequence_loss(logits, targets, weights, num_decoder_symbols,
@@ -413,7 +413,7 @@ def sequence_loss(logits, targets, weights, num_decoder_symbols,
   """
   with tf.op_scope(logits + targets + weights, name, "sequence_loss"): #notice how they make a list for values
   #this basically assures that entire operature occurs as one point in the graph -- really useful. 
-      '''reduce sum adds all of the elements in tensor to a single value'''
+    '''reduce sum adds all of the elements in tensor to a single value'''
     cost = tf.reduce_sum(sequence_loss_by_example(
           logits, targets, weights, num_decoder_symbols,
           average_across_timesteps=average_across_timesteps,
@@ -441,7 +441,7 @@ def norm_stabilizer_loss(bucket_states, norm_regularizer_factor = 50, name = Non
     Returns:
   final_reg_loss: One Scalar Value representing the loss averaged across the batch'''
 
-  with tf.op_scope(bucket_states, name, "norm_stabilizer_loss"):
+  with tf.op_scope(bucket_states, name, "norm_stabilizer_loss"): #need to have this for tf to work
     batch_size = tf.shape(bucket_states[0])[0]
     squared_sum = tf.zeros(tf.shape(bucket_states[0]),tf.float32)
     for q in xrange(len(bucket_states)-1): #this represents the summation part from t to T
@@ -522,8 +522,7 @@ def model_with_buckets(encoder_inputs, decoder_inputs, targets, weights,
 
       losses.append(final_reg_loss + sequence_loss(
           outputs[-1], bucket_targets, bucket_weights, num_decoder_symbols,
-          softmax_loss_function=softmax_loss_function, norm_regularize = norm_regularize,
-          hidden_states = out_hidden_states[-1], norm_regularizer_factor = norm_regularizer_factor))
+          softmax_loss_function=softmax_loss_function))
 
   return outputs, losses
 
