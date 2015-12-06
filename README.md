@@ -21,6 +21,7 @@ Main Features Include:
 Currently Working On:
 
 - Unitary RNN (will take at least 2 weeks) (http://arxiv.org/abs/1511.06464)
+- Adversarial Seq2Seq Training (will take at least 4 or 5 weeks)
 
 Other Features That Might Happen If There's Time:
 
@@ -142,7 +143,7 @@ For example, an `average_hidden_state_influence = .75` means 75% of the hidden s
 
 
 
-##Temperature Sampling During Decoding
+##Temperature Sampling During Decoding -- Working
 Allows you to use a temperature to alter the output of your softmax. 
 
 Higher temperature will result in more diversity in output, but more errors. Do not use this during training! Use this only while decoding after a model has been trained. 

@@ -16,6 +16,8 @@ from tensorflow.models.rnn import linear
 # from tensorflow.models.rnn import rnn_cell
 from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import rnn_enhanced as rnn
 from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import rnn_cell_enhanced as rnn_cell
+from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import linear_functions_enhanced as lfe
+
 
 import cf
 
@@ -377,7 +379,6 @@ def sequence_loss_by_example(logits, targets, weights, num_decoder_symbols,
       else:
         crossent = softmax_loss_function(logits[i], targets[i])
       
-
       log_perp_list.append(crossent * weights[i]) #this determines the cost I think?
 
     log_perps = tf.add_n(log_perp_list) #this adds all the elements in the tensor together
@@ -385,7 +386,7 @@ def sequence_loss_by_example(logits, targets, weights, num_decoder_symbols,
       total_size = tf.add_n(weights) #nick, this adds element wise all the of weights -- this produces just one number!
       total_size += 1e-12  # Just to avoid division by 0 for all-0 weights. This is adding it to just one number! total_size = total_size + 1e-12
       log_perps /= total_size #one number is produced here! this is equivalent to log_perps = log_perps/total_size
-  return log_perps#this is the natural log of your perplexity
+  return log_perps #this is the natural log of your perplexity
 
 
 def sequence_loss(logits, targets, weights, num_decoder_symbols,
@@ -432,7 +433,8 @@ def norm_stabilizer_loss(bucket_states, norm_regularizer_factor = 50, name = Non
     Args:
   bucket_states: The state of each decoder cell in each time-step. This is a list
       with length len(decoder_inputs) -- one item for each time-step.
-      Each item is a 2D Tensor of shape [batch_size x cell.state_size].
+      Each item is a 2D Tensor of shape [batch_size x cell.state_size]
+      batch size is going vertical!!!, and state is going horizontal so you want to sum on 0 axis.
 
   norm_regularizer_factor: The factor required to apply norm stabilization. Keep 
   in mind that a larger factor will allow you to achieve a lower loss, but it will take
@@ -442,10 +444,19 @@ def norm_stabilizer_loss(bucket_states, norm_regularizer_factor = 50, name = Non
   final_reg_loss: One Scalar Value representing the loss averaged across the batch'''
 
   with tf.op_scope(bucket_states, name, "norm_stabilizer_loss"): #need to have this for tf to work
-    batch_size = tf.shape(bucket_states[0])[0]
-    squared_sum = tf.zeros(tf.shape(bucket_states[0]),tf.float32)
+    batch_size = tf.shape(bucket_states[0])[0] #you choose the batch size number
+
+    squared_sum = tf.zeros(batch_size),tf.float32) #batch size in zeros
     for q in xrange(len(bucket_states)-1): #this represents the summation part from t to T
-      squared_sum = tf.add(squared_sum, tf.square(tf.sqrt(tf.sub(bucket_states[q+1]),tf.sqrt(bucket_states[q]))))
+      '''one problem you're having right now is that you can't take the sqrt of negative number...you need to figure this out first
+
+      You need to take the euclidean norm of the value -- can't find how to do this in tf....
+
+      okay so Amn matrix means that the m is going down and n is going horizontal -- so we choose to reduce sum on axis 1 '''
+      difference = tf.sub(lfe.frobenius_norm(bucket_states[q+1], reduction_indicies = 1),lfe.frobenius_norm(bucket_states[q], reduction_indicies = 1))
+      '''the difference has the dimensions of [batch_size]'''
+      
+      squared_sum = tf. add(squared_sum, tf.square(difference))
     #We want to average across batch sizes and divide by T
     final_reg_loss = norm_regularizer_factor*(tf.add_n(squared_sum)/((len(bucket_states))*(batch_size)))
     return final_reg_loss
