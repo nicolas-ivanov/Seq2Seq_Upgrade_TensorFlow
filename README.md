@@ -20,13 +20,14 @@ Main Features Include:
 
 Currently Working On:
 
-- Unitary RNN (will take at least 2 weeks) (http://arxiv.org/abs/1511.06464)
+- Unitary RNN (will take at least 2 weeks) --[Arjovsky's paper](http://arxiv.org/abs/1511.06464v2.pdf)
 - Adversarial Seq2Seq Training (will take at least 4 or 5 weeks)
 
 Other Features That Might Happen If There's Time:
 
 - Async Loading Data during training 
 - Curriculum Learning 
+- Identity RNN's -- [Le's Paper](http://arxiv.org/pdf/1504.00941v2.pdf)
 - Removing Biases From GRU and LSTM (some reports that it improves performance)
 
 You will find many, *many* comments in the code. Just like you guys, I'm still very much learning and it helps me to comment as much as possible. 
@@ -36,7 +37,7 @@ Lastly, I'm still have much to learn, so I apologize for mistakes in advance. I 
 
 ##Using Seq2Seq Upgrade
 
-Import All RNN Materials from Seq2Seq_Upgrade_Tensorflow Only!
+Import All RNN Materials from Seq2Seq_Upgrade_TensorFlow_Tensorflow Only!
 
 If you are using Seq2Seq_Upgrade_Tensorflow, please do not import:
 - rnn.py

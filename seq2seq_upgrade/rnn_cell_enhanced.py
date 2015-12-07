@@ -4,12 +4,18 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import tensorflow.python.platform
+
+
 import math
 
 from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
 
 from tensorflow.models.rnn import linear
+
+from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import unitary_linear
+
 
 # import unitary_rnn_library as url
 
@@ -40,8 +46,8 @@ class RNNCell(object):
 
     Returns:
       A pair containing:
-      - Output: A 2D Tensor with shape [batch_size x self.output_size]
-      - New state: A 2D Tensor with shape [batch_size x self.state_size].
+      - Output: A 2D Tensor with shape [batch_size x self.output_size] #output is the first variable?
+      - New state: A 2D Tensor with shape [batch_size x self.state_size] #new state is the second variable?.
     """
     raise NotImplementedError("Abstract method")
 
@@ -130,6 +136,40 @@ class UnitaryRNNCell(RNNCell):
       print('testing')
       with tf.variable_scope(scope or type(self).__name__):  # "JZS1Cell"
         with tf.variable_scope("UnitaryGates"):  # Reset gate and update gate.
+
+
+          '''just for sake of consistency, we'll keep some var names the same as authors'''
+
+          n_hidden = self._num_units
+          h_prev = state
+
+
+          '''development nick version here'''
+          step1 = unitary_linear.times_diag_tf(h_prev, n_hidden) #this will create a diagonal tensor with given diagonal values
+
+
+          #work on times_reflection next
+
+
+
+
+
+
+
+          modulus = T.sqrt(lin_output_re ** 2 + lin_output_im ** 2)
+          rescale = T.maximum(modulus + hidden_bias.dimshuffle('x',0), 0.) / (modulus + 1e-5)
+          nonlin_output_re = lin_output_re * rescale
+          nonlin_output_im = lin_output_im * rescale
+
+          h_t = tf.concat(1, [nonlin_output_re, 
+                             nonlin_output_im]) 
+
+          return h_t, h_t #check if h_t is the same as the output?????
+
+
+
+
+          '''----------------------------end of unitary rnn cell--------------------------'''
 
 
           # We start with bias of 1.0 to not reset and not update.
@@ -393,6 +433,7 @@ class GRUCell(RNNCell):
                                               2 * self._num_units, True, 1.0))
           r, u = tf.sigmoid(r), tf.sigmoid(u)
         with tf.variable_scope("Candidate"):
+          #notice they have the activation/non-linear step right here! 
           c = tf.tanh(linear.linear([inputs, r * state], self._num_units, True))
         new_h = u * state + (1 - u) * c
       return new_h, new_h
@@ -610,6 +651,43 @@ class LSTMCell(RNNCell):
             m = tf.matmul(m, w_proj)
 
       return m, tf.concat(1, [c, m])      
+
+
+
+
+class IdentityRNNCell(RNNCell):
+  """Identity RNN from http://arxiv.org/pdf/1504.00941v2.pdf"""
+
+  def __init__(self, num_units):
+    self._num_units = num_units
+    self._gpu_for_layer = gpu_for_layer
+
+
+  @property
+  def input_size(self):
+    return self._num_units
+
+  @property
+  def output_size(self):
+    return self._num_units
+
+  @property
+  def state_size(self):
+    return self._num_units
+
+  def __call__(self, inputs, state, scope=None):
+    """Most basic RNN: output = new_state = tanh(W * input + U * state + B)."""
+    with tf.device("/gpu:"+str(self._gpu_for_layer)):
+      with tf.variable_scope(scope or type(self).__name__):  # "BasicRNNCell"
+        
+        output = tf.tanh(linear.linear([inputs, state], self._num_units, True))
+        output = linear.linear([state])
+        output = tf.nn.relu(output) #this is the relu activation they describe.
+      return output, output
+
+
+
+
 
 class OutputProjectionWrapper(RNNCell):
   """Operator adding an output projection to the given cell.
