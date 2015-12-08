@@ -445,7 +445,7 @@ def norm_stabilizer_loss(logits_to_normalize, norm_regularizer_factor = 50, name
   with tf.op_scope(logits_to_normalize, name, "norm_stabilizer_loss"): #need to have this for tf to work
     batch_size = tf.shape(logits_to_normalize[0])[0] #you choose the batch size number
 
-    squared_sum = tf.zeros(batch_size),tf.float32) #batch size in zeros
+    squared_sum = tf.zeros((batch_size),tf.float32) #batch size in zeros
     for q in xrange(len(bucket_states)-1): #this represents the summation part from t to T
       '''one problem you're having right now is that you can't take the sqrt of negative number...you need to figure this out first
 

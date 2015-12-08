@@ -14,8 +14,9 @@ Main Features Include:
 
 - Different RNN layers on different GPU's
 - Regularizing RNNs by Stabilizing Activations -- [Krueger's paper](http://arxiv.org/pdf/1511.08400.pdf)
-- Averaging Hidden States During Decoding
 - GRU Mutants -- [Jozefowicz's paper](http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf)
+- Identity RNN's -- [Le's paper](http://arxiv.org/pdf/1504.00941v2.pdf)
+- Averaging Hidden States During Decoding
 - Temperature Sampling During Decoding 
 
 Currently Working On:
@@ -27,7 +28,6 @@ Other Features That Might Happen If There's Time:
 
 - Async Loading Data during training 
 - Curriculum Learning 
-- Identity RNN's -- [Le's Paper](http://arxiv.org/pdf/1504.00941v2.pdf)
 - Removing Biases From GRU and LSTM (some reports that it improves performance)
 
 You will find many, *many* comments in the code. Just like you guys, I'm still very much learning and it helps me to comment as much as possible. 
@@ -114,7 +114,7 @@ These mutants do better in some seq2seq tasks. Memory wise, they approximately t
 To use this simply:
 
 ```python
-from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import rnn_cell_enhanced```
+from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import rnn_cell_enhanced
 
 first_layer = rnn_cell_enhanced.JZS1Cell(size)
 ```
@@ -125,6 +125,16 @@ Mutants are called in by:
 3. `rnn_cell_enhanced.JZS3Cell(size, gpu_for_layer = 2)`
 
 *Gpu arguments are not necessary. 
+
+
+##Identity RNN -- Almost Ready for Testing
+Allows you to run an IRNN (on specified gpu of your choice). To call in:
+
+```python
+from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import rnn_cell_enhanced
+
+first_layer = rnn_cell_enhanced.IdentityRNNCell(size, gpu_for_layer = 0)
+```
 
 
 ##Averaging Hidden States -- Testing

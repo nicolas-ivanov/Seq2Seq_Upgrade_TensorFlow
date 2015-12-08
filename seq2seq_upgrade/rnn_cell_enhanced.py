@@ -14,6 +14,8 @@ import tensorflow as tf
 
 from tensorflow.models.rnn import linear
 
+
+from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import linear_functions_enhanced as lfe
 from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import unitary_linear
 
 
@@ -66,7 +68,7 @@ class RNNCell(object):
     """Integer: size of state used by this cell."""
     raise NotImplementedError("Abstract method")
 
-  def zero_state(self, batch_size, dtype):
+  def zero_state(self, batch_size, dtype): #this might be really useful for the idenity rnn...
     """Return state tensor (shape [batch_size x state_size]) filled with 0.
 
     Args:
@@ -76,15 +78,15 @@ class RNNCell(object):
     Returns:
       A 2D Tensor of shape [batch_size x state_size] filled with zeros.
     """
-    zeros = tf.zeros(tf.pack([batch_size, self.state_size]), dtype=dtype)
+    zeros = tf.zeros(tf.pack([batch_size, self.state_size]), dtype=dtype) #tf.pack converts list to numpy matrix
     zeros.set_shape([None, self.state_size])
     return zeros
 
 
 class BasicRNNCell(RNNCell):
-  """The most basic RNN cell."""
+  """The most basic RNN cell. Tanh activation"""
 
-  def __init__(self, num_units):
+  def __init__(self, num_units, gpu_for_layer):
     self._num_units = num_units
     self._gpu_for_layer = gpu_for_layer
 
@@ -134,7 +136,7 @@ class UnitaryRNNCell(RNNCell):
   def __call__(self, inputs, state, scope=None):
     with tf.device("/gpu:"+str(self._gpu_for_layer)):
       print('testing')
-      with tf.variable_scope(scope or type(self).__name__):  # "JZS1Cell"
+      with tf.variable_scope(scope or type(self).__name__):  # "UnitaryRNNCell"
         with tf.variable_scope("UnitaryGates"):  # Reset gate and update gate.
 
 
@@ -149,10 +151,6 @@ class UnitaryRNNCell(RNNCell):
 
 
           #work on times_reflection next
-
-
-
-
 
 
 
@@ -212,50 +210,6 @@ class UnitaryRNNCell(RNNCell):
         return h_t, h_t #there is only one hidden state output to keep track of. 
         #This makes it more mem efficient than LSTM
 
-class GRUCell_junkcopy(RNNCell):
-  """Junk copy of a rnn to experiment with"""
-
-  def __init__(self, num_units, gpu_for_layer = 0):
-    self._num_units = num_units
-    self._gpu_for_layer = gpu_for_layer
-
-
-  @property
-  def input_size(self):
-    return self._num_units
-
-  @property
-  def output_size(self):
-    return self._num_units
-
-  @property
-  def state_size(self):
-    return self._num_units
-
-  def __call__(self, inputs, state, scope=None):
-    with tf.device("/gpu:"+str(self._gpu_for_layer)):
-
-      """Gated JUNK COPY HERE JUNK COPY HERE JUNK COPY HERE recurrent unit (GRU) with nunits cells."""
-      with tf.variable_scope(scope or type(self).__name__):  # "GRUCell"
-        with tf.variable_scope("Gates"):  # Reset gate and update gate.
-          # We start with bias of 1.0 to not reset and not udpate.
-          z = tf.sigmoid(linear.linear([inputs], 
-                            self._num_units, True, 1.0))
-
-        with tf.variable_scope("Testing"):
-          r, u = tf.split(1, 2, linear.linear([inputs],
-                                             2 * self._num_units, True, 1.0))
-          r, u = tf.sigmoid(r), tf.sigmoid(u)
-          ranvar = 4
-          pop = tf.sigmoid(r)
-        with tf.variable_scope("Candidate"):
-          c = tf.tanh(linear.linear([inputs, r * state], self._num_units, True))
-        new_h = u * state + (1 - u) * c
-      return new_h, new_h
-
-      '''nick, notice that for the gru, the output and the hidden state are literally the same thing'''
-
-
 
 class JZS1Cell(RNNCell):
   """Mutant 1 of the following paper: http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf"""
@@ -286,6 +240,7 @@ class JZS1Cell(RNNCell):
 
           z = tf.sigmoid(linear.linear([inputs], 
                             self._num_units, True, 1.0)) 
+
         with tf.variable_scope("Rinput"):
           '''equation 2 r = sigm(WxrXt+Whrht+Br), h_t is the previous state'''
 
@@ -306,7 +261,7 @@ class JZS1Cell(RNNCell):
 
 
 class JZS2Cell(RNNCell):
-  """Mutant 1 of the following paper: http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf"""
+  """Mutant 2 of the following paper: http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf"""
 
   def __init__(self, num_units, gpu_for_layer = 0):
     self._num_units = num_units
@@ -354,7 +309,7 @@ class JZS2Cell(RNNCell):
         #This makes it more mem efficient than LSTM
 
 class JZS3Cell(RNNCell):
-  """Mutant 1 of the following paper: http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf"""
+  """Mutant 3 of the following paper: http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf"""
 
   def __init__(self, num_units, gpu_for_layer = 0):
     self._num_units = num_units
@@ -432,7 +387,7 @@ class GRUCell(RNNCell):
           r, u = tf.split(1, 2, linear.linear([inputs, state],
                                               2 * self._num_units, True, 1.0))
           r, u = tf.sigmoid(r), tf.sigmoid(u)
-        with tf.variable_scope("Candidate"):
+        with tf.variable_scope("Candidate"): #you need a different one because you're doing a new linear
           #notice they have the activation/non-linear step right here! 
           c = tf.tanh(linear.linear([inputs, r * state], self._num_units, True))
         new_h = u * state + (1 - u) * c
@@ -658,7 +613,9 @@ class LSTMCell(RNNCell):
 class IdentityRNNCell(RNNCell):
   """Identity RNN from http://arxiv.org/pdf/1504.00941v2.pdf"""
 
-  def __init__(self, num_units):
+  '''if you want only short term memory, you can use a small scalar in the initialization of the identity matrix'''
+
+  def __init__(self, num_units, gpu_for_layer):
     self._num_units = num_units
     self._gpu_for_layer = gpu_for_layer
 
@@ -677,12 +634,19 @@ class IdentityRNNCell(RNNCell):
 
   def __call__(self, inputs, state, scope=None):
     """Most basic RNN: output = new_state = tanh(W * input + U * state + B)."""
+
+    '''we need to separate the matmul's because of the identity matrix configuration'''
     with tf.device("/gpu:"+str(self._gpu_for_layer)):
-      with tf.variable_scope(scope or type(self).__name__):  # "BasicRNNCell"
+      with tf.variable_scope(scope or type(self).__name__):  # "IdentityRNNCell"
+        with tf.variable_scope("inputs_weights"):
+          input_weight_matrix_updated = lfe.linear(lfe.linear([inputs], self._num_units, True, weight_initializer = "constant",
+            bias_start = 0.0))
+        with tf.variable_scope("state_weights"): #notice that we make an identity matrix for the weights.
+          state_weight_matrix_updated = lfe.linear(lfe.linear([state], self._num_units, True, weight_initializer = "identity",
+            bias_start = 0.0))
+
+        output = tf.nn.relu(tf.add(input_weight_matrix_updated, state_weight_matrix_updated)) #add them together. 
         
-        output = tf.tanh(linear.linear([inputs, state], self._num_units, True))
-        output = linear.linear([state])
-        output = tf.nn.relu(output) #this is the relu activation they describe.
       return output, output
 
 

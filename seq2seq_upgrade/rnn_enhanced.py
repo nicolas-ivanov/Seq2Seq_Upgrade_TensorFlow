@@ -121,6 +121,8 @@ def state_saving_rnn(cell, inputs, state_saver, state_name,
                      sequence_length=None, scope=None):
   """RNN that accepts a state saver for time-truncated RNN calculation.
 
+  Nick, you might need to use this for the state saving properties.
+
   Args:
     cell: An instance of RNNCell.
     inputs: A length T list of inputs, each a vector with shape [batch_size].

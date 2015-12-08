@@ -7,10 +7,31 @@ import tensorflow.python.platform
 
 import math
 
+import numpy as np
+
 from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
 
-def linear(args, output_size, bias, bias_start=0.0, scope=None):
+
+
+def identity_initializer():
+    def _initializer(shape, dtype=tf.float32):
+        if len(shape) == 1:
+            return tf.constant_op.constant(0., dtype=dtype, shape=shape)
+        elif len(shape) == 2 and shape[0] == shape[1]:
+            return tf.constant_op.constant(np.identity(shape[0], dtype))
+        elif len(shape) == 4 and shape[2] == shape[3]:
+            array = np.zeros(shape, dtype=float)
+            cx, cy = shape[0]/2, shape[1]/2
+            for i in range(shape[2]):
+                array[cx, cy, i, i] = 1
+            return tf.constant_op.constant(array, dtype=dtype)
+        else:
+            raise
+    return _initializer
+
+
+def linear(args, output_size, bias, bias_start=0.0, weight_initializer = "constant", scope=None):
   """Linear map: sum_i(args[i] * W[i]), where W[i] is a variable.
 
   Args:
@@ -44,7 +65,18 @@ def linear(args, output_size, bias, bias_start=0.0, scope=None):
 
   # Now the computation.
   with tf.variable_scope(scope or "Linear"): #in this linear scope, the library that you're retriving is Linear
-    matrix = tf.get_variable("Matrix", [total_arg_size, output_size]) #i think this is retrieving the weight matrix
+  #this will make a class for these variables so you can reference them in the future. 
+
+    '''initialize weight matrix properly'''
+    if weight_initializer == "constant":
+      matrix = tf.get_variable("Matrix", [total_arg_size, output_size]) #i think this is retrieving the weight matrix
+    elif weight_initializer == "identity":
+      matrix = tf.get_variable("Matrix", [total_arg_size, output_size], initializer = identity_initializer()) #fix this when you get a chance for identity?
+    else:
+      raise ValueError("weight_initializer not set correctly: %s" % weight_initializer)
+
+
+    #this will create a variable if it hasn't been created yet! we need to make it an identiy matrix?
     if len(args) == 1:
       res = tf.matmul(args[0], matrix) #this is just one matrix to multiply by 
     else:
@@ -53,6 +85,7 @@ def linear(args, output_size, bias, bias_start=0.0, scope=None):
       return res
     bias_term = tf.get_variable("Bias", [output_size],
                                 initializer=tf.constant_initializer(bias_start)) #this is retrieving the bias term that you would use
+    '''the tf.constant_initializer is used because it makes all one value'''
   return res + bias_term
 
 
