@@ -53,6 +53,17 @@ from the regular tensorflow. Instead import:
 
 from Seq2Seq_Upgrade_Tensorflow. Otherwise class inheritance will be thrown off, and you will get an `isinstance` error!
 
+You can also try to install seq2seq_upgrade as a python package
+
+    sudo pip install git+ssh://github.com/LeavesBreathe/Seq2Seq_Upgrade_TensorFlow.git
+
+or a bit longer version in case the previous one didn't work
+
+    git clone git@github.com:LeavesBreathe/Seq2Seq_Upgrade_TensorFlow.git
+    cd Seq2Seq_Upgrade_TensorFlow
+    sudo python setup.py build & sudo python setup.py install
+    
+After that you hopefully be able to simply write `import seq2seq_upgrade`
 
 
 ##Different RNN Layers on Multiple GPU's -- Working
