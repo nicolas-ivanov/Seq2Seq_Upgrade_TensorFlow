@@ -766,7 +766,8 @@ def moving_average_past_five(y_val_loss_line_list):
 def create_plot_by_step(number_of_epochs_completed, y_train_loss_line_list, y_val_loss_line_list, name_of_plot, step_size, batch_size, y_learning_rate_list, y_val_loss_moving_average_list, y_val_loss_line_list_25,
             y_val_loss_line_list_75,
             y_val_loss_line_list_100,
-            train_size):
+            train_size,
+            starting_learning_rate):
 	try:
 		x_axis = np.linspace(step_size,number_of_epochs_completed, len(y_train_loss_line_list))
 		y_train_loss_line = np.asarray(y_train_loss_line_list)
@@ -785,7 +786,7 @@ def create_plot_by_step(number_of_epochs_completed, y_train_loss_line_list, y_va
 		tracevalloss = go.Scatter(
 			x = x_axis,
 			y = y_val_loss_line,
-			name = 'Validation Loss (13,18)',
+			name = 'Validation Loss (5,10)',
 			line = dict(
 				color = ('rgb(22, 96, 167)'), #blue
 				width = 2)
@@ -793,7 +794,7 @@ def create_plot_by_step(number_of_epochs_completed, y_train_loss_line_list, y_va
 		tracevalloss25 = go.Scatter(
 			x = x_axis,
 			y = y_val_loss_line_list_25,
-			name = 'Validation Loss (25,30)',
+			name = 'Validation Loss (13,18)',
 			line = dict(
 				color = ('rgb(96, 246, 236)'), #cyan
 				width = 2)
@@ -802,7 +803,7 @@ def create_plot_by_step(number_of_epochs_completed, y_train_loss_line_list, y_va
 		tracevalloss75 = go.Scatter(
 			x = x_axis,
 			y = y_val_loss_line_list_75,
-			name = 'Validation Loss (40,40)',
+			name = 'Validation Loss (25,30)',
 			line = dict(
 				color = ('rgb(207, 194, 12)'), #yellow
 				width = 2)
@@ -841,7 +842,7 @@ def create_plot_by_step(number_of_epochs_completed, y_train_loss_line_list, y_va
 
 		
 		layout = dict(title = name_of_plot,
-		              xaxis = dict(title = 'Steps (Batch Size = '+str(batch_size)+')<br>'+'Epoch = '+str(int(train_size/batch_size))+' Steps. Train Size = '+str(int(train_size))),
+		              xaxis = dict(title = 'Steps (Batch Size = '+str(batch_size)+')<br>'+'Epoch = '+str(int(train_size/batch_size))+' Steps. Train Size = '+str(int(train_size))+'<br>'+'Starting LR = '+str(starting_learning_rate)),
 		              yaxis = dict(title = 'Loss (Goal = 1.6)'),
 		              )
 

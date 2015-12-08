@@ -27,6 +27,7 @@ Currently Working On:
 Other Features That Might Happen If There's Time:
 
 - Async Loading Data during training 
+- Decorrelating Representations -- [Cogswell's Paper](http://arxiv.org/pdf/1511.06068v1.pdf)
 - Curriculum Learning 
 - Removing Biases From GRU and LSTM (some reports that it improves performance)
 
@@ -127,7 +128,7 @@ Mutants are called in by:
 *Gpu arguments are not necessary. 
 
 
-##Identity RNN -- Almost Ready for Testing
+##Identity RNN -- Testing
 Allows you to run an IRNN (on specified gpu of your choice). To call in:
 
 ```python

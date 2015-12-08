@@ -121,7 +121,7 @@ class UnitaryRNNCell(RNNCell):
     self._gpu_for_layer = gpu_for_layer
   
 
-  @property #these properities you may need to modify for the unitary part. Double for imaginary parts. not sure yet though.
+  @property #why is the input and output size the num_units? 
   def input_size(self):
     return self._num_units
 
@@ -132,6 +132,44 @@ class UnitaryRNNCell(RNNCell):
   @property
   def state_size(self):
     return self._num_units
+
+
+  '''Design Structure of Unitary RNN
+
+
+
+  The Unitary RNN consists of the following matrices (or parameters):
+  1. V_re = A Real Matrix for Hidden weights -- n_input x n_hidden
+  2. V_im = An imaginary matrix for hidden weights -- n_input x n_hidden -- V is the input matrix
+  3. reflection = A single reflection matrix 
+  4. U = Unitary matrix -- 2*n_hidden x n_output -- This is the Output Matrix
+  5. Hidden bias -- these are initialized at 0
+  6. Out_bias -- these are also initialized at 0 
+  7. theta = phase -- 3 x n_hidden (i think its three, one for U, V_re, V_im)
+  8. h_0 = bucket uniform initilzation -- 1 x 2*n_hidden
+  9. scale = matrix of ones for scaling -- n_hidden
+
+  U and V are initialized with glorot uniform
+
+
+  Notice here that R1 and R2 are reflections. 
+
+
+
+
+  The Weight matrix is Unitary, meaning UU* = U*U = I where U* is the complex conjugate
+  Keep in mind for matmul, you must have the same number columns in m1 as rows in m2
+
+  Most memory consumption with RNNs is O(MNT) for hidden unit activations -- so as long as they are the same size, you're cool
+
+  Typical batch_size for seq2seq is 128 x 120 timesteps = ~15000
+
+  In terms of wall time, uRNN step is a bit slower than the regular LSTM. They have some optimization changes that make it 4x faster???
+  but they are not on github. 
+
+  In the paper, they used RMSprop as an optimizer with 0.001 learing rate'''
+
+
 
   def __call__(self, inputs, state, scope=None):
     with tf.device("/gpu:"+str(self._gpu_for_layer)):
@@ -162,9 +200,20 @@ class UnitaryRNNCell(RNNCell):
           h_t = tf.concat(1, [nonlin_output_re, 
                              nonlin_output_im]) 
 
+          #keep in mind that you can use tf.complex to convert two numbers into a complex number -- this works for tensors!
+
           return h_t, h_t #check if h_t is the same as the output?????
 
 
+          '''list of complex number functions in tf
+
+          1. tf.complex -- makes complex number
+          2. complex_abs -- finds the absolute value of the tensor
+          3. tf.conj -- makes conjugate
+          4. tf.imag -- returns imaginary part -- go back and forth between complex and imag
+          5. tf.real -- returns real part'''
+
+          #keep in mind that identity matricies are a form of diagonal matricies, but they just have ones.
 
 
           '''----------------------------end of unitary rnn cell--------------------------'''
@@ -172,7 +221,9 @@ class UnitaryRNNCell(RNNCell):
 
           # We start with bias of 1.0 to not reset and not update.
           '''First, we will start with the hidden linear transform
-          W = D3R2F-1D2PermR1FD1'''
+          W = D3R2F-1D2PermR1FD1
+
+          Keep in mind that originally the equation would be W = VDV*, but it leads to too much computation/memory o(n^2)'''
           step1 = times_diag(h_prev, n_hidden, theta[0,:])
           step2 = step1
   #        step2 = do_fft(step1, n_hidden)
@@ -648,8 +699,6 @@ class IdentityRNNCell(RNNCell):
         output = tf.nn.relu(tf.add(input_weight_matrix_updated, state_weight_matrix_updated)) #add them together. 
         
       return output, output
-
-
 
 
 
