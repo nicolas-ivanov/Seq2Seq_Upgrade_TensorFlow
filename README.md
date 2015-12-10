@@ -10,26 +10,31 @@ sys.path.insert(0, os.environ['HOME']) #add the dir that you cloned to
 from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import seq2seq_enhanced, rnn_cell_enhanced
 ```
 
-Main Features Include:
+####Main Features Include:
 
 - Different RNN layers on different GPU's
 - Regularizing RNNs by Stabilizing Activations -- [Krueger's paper](http://arxiv.org/pdf/1511.08400.pdf)
 - GRU Mutants -- [Jozefowicz's paper](http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf)
 - Identity RNN's -- [Le's paper](http://arxiv.org/pdf/1504.00941v2.pdf)
 - Averaging Hidden States During Decoding
-- Temperature Sampling During Decoding 
+- Temperature Sampling Within Each Time-Step in Decoding [explanation here](https://www.reddit.com/r/MachineLearning/comments/3vzlzz/reproducing_a_neural_conversational_model_in_torch/)
 
-Currently Working On:
+####Currently Working On:
 
 - Unitary RNN (will take at least 2 weeks) --[Arjovsky's paper](http://arxiv.org/abs/1511.06464v2.pdf)
 - Adversarial Seq2Seq Training (will take at least 4 or 5 weeks)
+- Diversity-Promoting Objective (1 week) -- [Li's paper](http://arxiv.org/pdf/1510.03055v1.pdf)
 
-Other Features That Might Happen If There's Time:
+
+
+
+####Other Features That Might Happen If There's Time:
 
 - Async Loading Data during training 
 - Decorrelating Representations -- [Cogswell's Paper](http://arxiv.org/pdf/1511.06068v1.pdf)
 - Curriculum Learning 
 - Removing Biases From GRU and LSTM (some reports that it improves performance)
+- Relaxation Parameter from Neural GPU [Kaiser's Paper](http://arxiv.org/pdf/1511.08228v1.pdf)
 
 You will find many, *many* comments in the code. Just like you guys, I'm still very much learning and it helps me to comment as much as possible. 
 
@@ -65,8 +70,17 @@ or a bit longer version in case the previous one didn't work
     
 After that you hopefully be able to simply write `import seq2seq_upgrade`
 
+------
+Some Features are being tested while others are tested and functional. They are labelled:
 
-##Different RNN Layers on Multiple GPU's -- Working
+Status | Meaning
+------------- | -------------
+Feature Working  | Tested and Should Work as Documented
+Under Testing  | May Not Work or Produce Desired Result
+
+
+##Different RNN Layers on Multiple GPU's
+####Feature Working
 
 To call in GRU for gpu 0, simply call in the class
 
@@ -94,7 +108,9 @@ dropout_first_layer = rnn_cell_enhanced.DropoutWrapper(first_layer, output_keep_
 ```
 
 
-##Norm Regularize Hidden States And Outputs -- Testing
+##Norm Regularize Hidden States And Outputs
+####Under Testing
+
 [Krueger's paper](http://arxiv.org/pdf/1511.08400.pdf)
 
 Adds an additional cost to regularize hidden state activations and/or output activations (logits).
@@ -118,7 +134,9 @@ in mind that a larger factor will allow you to achieve a lower loss, but it will
 many more epochs to do so!
 
 
-##GRU Mutants -- Working
+##GRU Mutants
+####Feature Working
+
 [Jozefowicz's paper](http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf)
 
 These mutants do better in some seq2seq tasks. Memory wise, they approximately the same as GRU.
@@ -139,7 +157,9 @@ Mutants are called in by:
 *Gpu arguments are not necessary. 
 
 
-##Identity RNN -- Testing
+##Identity RNN
+####Under Testing
+
 Allows you to run an IRNN (on specified gpu of your choice). To call in:
 
 ```python
@@ -149,7 +169,9 @@ first_layer = rnn_cell_enhanced.IdentityRNNCell(size, gpu_for_layer = 0)
 ```
 
 
-##Averaging Hidden States -- Testing
+##Averaging Hidden States
+####Under Testing
+
 Allows you to set ratio of last hidden state to mean hidden state
 
 Simply call in:
@@ -166,35 +188,29 @@ For example, an `average_hidden_state_influence = .75` means 75% of the hidden s
 
 
 
-##Temperature Sampling During Decoding -- Working
+##Temperature Sampling During Decoding
+####Under Testing
+
 Allows you to use a temperature to alter the output of your softmax. 
 
-Higher temperature will result in more diversity in output, but more errors. Do not use this during training! Use this only while decoding after a model has been trained. 
+Higher temperature will result in more diversity in output, but more errors. **Do not use this during training!** Use this only while decoding after a model has been trained. 
 
-Note: This does not affect the internal decoding process at all. Rather, this is meant to replace the argmax function that is commonly used in greedy decoding.
+This affects the internal decoding process. Your decoder will produce a distribution. It will then "roll a dice"
+and depending on what words are most probable, it will select *one* of them. The selected word will then be put into your decoder
+for the next timestep. Then the decoder will roll the dice again, and repeat the process.
+
+Go Symbol --> Decoder Timestep 1 --> Dice Roll on Distribution --> One Word Selected --> Decoder Timestep 2
 
 To use:
 
 ```python
-from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import decoding_enhanced
+from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import seq2seq_enhanced as sse
 
-for each_temperature in [0.2, 0.4, 0.6, 0.8, 1.0, 1.5]:
-            outputs = []
-            for logit in output_logits:
-              select_word_number = int(decoding_enhanced.sample_with_temperature(logit[0], each_temperature))
-              outputs.append(select_word_number)
-
-
-            # If there is an EOS symbol in outputs, cut them at that point.
-            if data_utils.EOS_ID in outputs:
-              outputs = outputs[:outputs.index(data_utils.EOS_ID)]
-
-            print() #put extra space between input and output
-            print('--------Temperature is: ', each_temperature)
-            print("Output Sentence", sentence_num, "Below")
-            print(" ".join([rev_fr_vocab[output] for output in outputs])) #place space inbetween output here
-            print()
+seq2seq_model = sse.embedding_attention_seq2seq(....,temperature_decode = True, temperature = 1.0)
 ```
+
+**Note**: Right now, you have to recompile the model each time you want to test a different temperature. Currently,
+I'm working on a way to allow you to test multiple temperatures without re-compiling. 
 
 
 

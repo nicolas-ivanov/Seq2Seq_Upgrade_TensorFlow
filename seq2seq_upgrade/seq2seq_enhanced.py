@@ -17,9 +17,28 @@ from tensorflow.models.rnn import linear
 from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import rnn_enhanced as rnn
 from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import rnn_cell_enhanced as rnn_cell
 from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import linear_functions_enhanced as lfe
+from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import decoding_enhanced
 
 
 import cf
+
+
+def extract_argmax_and_embed(prev, _, temperature_decode = False, temperature = 1.0): #placing this function here avoids re-compile time during training!
+        """Loop_function that extracts the symbol from prev and embeds it."""
+        if output_projection is not None:
+          prev = tf.nn.xw_plus_b(prev, output_projection[0], output_projection[1])
+
+        '''output prev of xw_plus_b is [batch_size x out_units]'''
+        #this might be where you gotta do the sampling with temperature during decoding  
+        if temperature_decode:
+          prev_symbol = tf.stop_gradient(decoding_enhanced.batch_sampling_with_temperature(prev, temperature))
+
+        else:
+          prev_symbol = tf.stop_gradient(tf.argmax(prev, dimension = 1))
+
+        #be careful of batch sizing here nick!
+        emb_prev = tf.nn.embedding_lookup(embedding, prev_symbol) #this reconverts it to the embedding I believe
+        return emb_prev
 
 def average_hidden_states(decoder_states, average_hidden_state_influence = 0.5, name = None):
   with tf.op_scope(decoder_states + average_hidden_state_influence, name, "average_hidden_states"):
@@ -27,9 +46,28 @@ def average_hidden_states(decoder_states, average_hidden_state_influence = 0.5, 
     final_decoder_state = tf.add((1 - average_hidden_state_influence) * decoder_states[-1], average_hidden_state_influence*mean_decoder_states)
   return final_decoder_state
 
+
+def attention(query): #this is part of the attention_decoder. It is placed outside to avoid re-compile time. 
+  """Put attention masks on hidden using hidden_features and query."""
+  ds = []  # Results of attention reads will be stored here.
+  for a in xrange(num_heads):
+    with tf.variable_scope("Attention_%d" % a):
+      y = linear.linear(query, attention_vec_size, True)
+      y = tf.reshape(y, [-1, 1, 1, attention_vec_size])
+      # Attention mask is a softmax of v^T * tanh(...).
+      s = tf.reduce_sum(v[a] * tf.tanh(hidden_features[a] + y), [2, 3])
+      a = tf.nn.softmax(s)
+      # Now calculate the attention-weighted vector d.
+      d = tf.reduce_sum(tf.reshape(a, [-1, attn_length, 1, 1]) * hidden,
+                        [1, 2])
+      ds.append(tf.reshape(d, [-1, attn_size]))
+  return ds
+
+
 def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
                       output_size=None, num_heads=1, loop_function=None,
-                      dtype=tf.float32, scope=None, average_states = False, average_hidden_state_influence = 0.5):
+                      dtype=tf.float32, scope=None, average_states = False, average_hidden_state_influence = 0.5,
+                      temperature_decode = False, temperature = 1.0):
   """RNN decoder with attention for the sequence-to-sequence model.
 
   Args:
@@ -96,22 +134,6 @@ def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
 
     states = [initial_state]
 
-    def attention(query):
-      """Put attention masks on hidden using hidden_features and query."""
-      ds = []  # Results of attention reads will be stored here.
-      for a in xrange(num_heads):
-        with tf.variable_scope("Attention_%d" % a):
-          y = linear.linear(query, attention_vec_size, True)
-          y = tf.reshape(y, [-1, 1, 1, attention_vec_size])
-          # Attention mask is a softmax of v^T * tanh(...).
-          s = tf.reduce_sum(v[a] * tf.tanh(hidden_features[a] + y), [2, 3])
-          a = tf.nn.softmax(s)
-          # Now calculate the attention-weighted vector d.
-          d = tf.reduce_sum(tf.reshape(a, [-1, attn_length, 1, 1]) * hidden,
-                            [1, 2])
-          ds.append(tf.reshape(d, [-1, attn_size]))
-      return ds
-
     outputs = []
     prev = None
     batch_attn_size = tf.pack([batch_size, attn_size])
@@ -130,6 +152,7 @@ def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
         with tf.variable_scope("loop_function", reuse=True):
           inp = tf.stop_gradient(loop_function(prev, i)) #basically, stop_gradient doesn't allow inputs to be taken into account
 
+      #this will make an input that is combined with attention
 
 
       # Merge input and previous attentions into one vector of the right size.
@@ -160,7 +183,8 @@ def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,
                                 cell, num_symbols, num_heads=1,
                                 output_size=None, output_projection=None,
                                 feed_previous=False, dtype=tf.float32,
-                                scope=None, average_states = False, average_hidden_state_influence = 0.5):
+                                scope=None, average_states = False, average_hidden_state_influence = 0.5,
+                                temperature_decode = False, temperature = 1.0):
   """RNN decoder with embedding and attention and a pure-decoding option.
 
   Args:
@@ -208,24 +232,21 @@ def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,
     with tf.device("/cpu:0"):
       embedding = tf.get_variable("embedding", [num_symbols, cell.input_size])
 
-    def extract_argmax_and_embed(prev, _):
-      """Loop_function that extracts the symbol from prev and embeds it."""
-      if output_projection is not None:
-        prev = tf.nn.xw_plus_b(prev, output_projection[0], output_projection[1])
-      prev_symbol = tf.stop_gradient(tf.argmax(prev, 1))
-      emb_prev = tf.nn.embedding_lookup(embedding, prev_symbol)
-      return emb_prev
+
 
     loop_function = None
     if feed_previous:
-      loop_function = extract_argmax_and_embed
+      loop_function = extract_argmax_and_embed #oh wow they are literally passing a function right here....
 
     emb_inp = [tf.nn.embedding_lookup(embedding, i) for i in decoder_inputs]
+
+    #this is making a list of all the embedded inputs
     
     return attention_decoder(
       emb_inp, initial_state, attention_states, cell, output_size=output_size,
       num_heads=num_heads, loop_function=loop_function, average_states = average_states, 
-      average_hidden_state_influence = average_hidden_state_influence)
+      average_hidden_state_influence = average_hidden_state_influence, temperature_decode = temperature_decode,
+      temperature = temperature)
 
 
 def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
@@ -233,7 +254,8 @@ def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
                                 num_heads=1, output_projection=None,
                                 feed_previous=False, dtype=tf.float32,
                                 scope=None, average_states = False,
-                                average_hidden_state_influence = 0.5):
+                                average_hidden_state_influence = 0.5, temperature_decode = False,
+                                temperature = 1.0):
   """Embedding sequence-to-sequence model with attention.
 
   This model first embeds encoder_inputs by a newly created embedding (of shape
@@ -304,7 +326,8 @@ def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
       return embedding_attention_decoder(
           decoder_inputs, encoder_states[-1], attention_states, cell,
           num_decoder_symbols, num_heads, output_size, output_projection,
-          feed_previous, average_states = average_states, average_hidden_state_influence = average_hidden_state_influence)
+          feed_previous, average_states = average_states, average_hidden_state_influence = average_hidden_state_influence,
+          temperature_decode = temperature_decode, temperature = temperature)
     
     else:  # If feed_previous is a Tensor, we construct 2 graphs and use cond.
       '''nick, right here, you modify by doing a broad if statement'''
@@ -314,13 +337,15 @@ def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
           decoder_inputs, encoder_states[-1], attention_states, cell,
           num_decoder_symbols, num_heads, output_size, output_projection, True, 
           average_states = average_states,
-          average_hidden_state_influence = average_hidden_state_influence)
+          average_hidden_state_influence = average_hidden_state_influence,
+          temperature_decode = temperature_decode, temperature = temperature)
       tf.get_variable_scope().reuse_variables()
       outputs2, states2 = embedding_attention_decoder(
           decoder_inputs, encoder_states[-1], attention_states, cell,
           num_decoder_symbols, num_heads, output_size, output_projection, False,
           average_states = average_states,
-          average_hidden_state_influence = average_hidden_state_influence)
+          average_hidden_state_influence = average_hidden_state_influence,
+          temperature_decode = temperature_decode, temperature = temperature)
 
       outputs = tf.control_flow_ops.cond(feed_previous,
                                          lambda: outputs1, lambda: outputs2)

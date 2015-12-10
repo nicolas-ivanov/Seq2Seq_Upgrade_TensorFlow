@@ -50,3 +50,50 @@ def sample_with_temperature(a, temperature=1.0):
 
 	return final_number
 
+def batch_sample_with_temperature(a, temperature=1.0):
+	'''this function is like sample_with_temperature except it can handle batch input a of [batch_size x logits] 
+	this function takes logits input, and produces a specific number from the array. This is all done on the gpu
+	because this function uses tensorflow
+
+
+	As you increase the temperature, you will get more diversified output but with more errors (usually gramatical if you're 
+		doing text)
+
+	args: 
+	Logits -- this must be a 2d array [batch_size x logits]
+	Temperature -- how much variance you want in output
+
+	returns:
+	Selected number from distribution
+	'''
+
+	'''
+	Equation can be found here: https://en.wikipedia.org/wiki/Softmax_function (under reinforcement learning)
+
+        Karpathy did it here as well: https://github.com/karpathy/char-rnn/blob/4297a9bf69726823d944ad971555e91204f12ca8/sample.lua
+        '''
+	'''a is [batch_size x logits]'''
+	exponent_raised = tf.exp(tf.div(a, temperature)) #start by reduction of temperature, and get rid of negative numbers with exponent
+	
+	probs = tf.div(exponent_raised, tf.reduce_sum(exponent_raised, reduction_indicies = 1)) #this will make everything add up to 100% 
+
+	#reduce the sum for rounding errors
+	subtracting_factor = 0.002/tf.shape(probs)[1] #this represents the vocab size
+
+	probs = tf.sub(probs, subtracting_factor)
+
+	'''since tf doesn't have a multinomial function, we must break down the batch'''
+	randomized_list = []
+	for i in xrange(tf.shape(probs)[0]): #batch_number
+		multinomial_part = np.random.multinomial(1, probs[0], 1)
+		randomized_list.append(multinomial_part)
+
+	#concatenate multinomial parts back into a tensor
+	randomized_2d = tf.convert_to_tensor(randomized_list) #after this step, it should be a 2d tensor I believe!
+
+	# we need to make sure that this is a 2d tensor, not a 1d! 
+	# randomized_2d = tf.expand_dims(randomized_1d, dim = 1) #you want either 0 or 1 here 
+
+	final_number = tf.argmax(randomized_2d, dimension = 1) #you want dimension = 1 because you are argmaxing across rows.
+
+	return final_number

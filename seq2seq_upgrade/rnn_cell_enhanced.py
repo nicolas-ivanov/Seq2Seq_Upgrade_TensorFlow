@@ -111,8 +111,6 @@ class BasicRNNCell(RNNCell):
       return output, output
 
 
-
-'''Note -- UnitaryRNNCell Is Still Being Developed -- It Will NOT Work If You Call It'''
 class UnitaryRNNCell(RNNCell):
   """Unitary RNN from Paper: http://arxiv.org/pdf/1511.06464v1.pdf"""
 
@@ -136,8 +134,6 @@ class UnitaryRNNCell(RNNCell):
 
   '''Design Structure of Unitary RNN
 
-
-
   The Unitary RNN consists of the following matrices (or parameters):
   1. V_re = A Real Matrix for Hidden weights -- n_input x n_hidden
   2. V_im = An imaginary matrix for hidden weights -- n_input x n_hidden -- V is the input matrix
@@ -149,13 +145,15 @@ class UnitaryRNNCell(RNNCell):
   8. h_0 = bucket uniform initilzation -- 1 x 2*n_hidden
   9. scale = matrix of ones for scaling -- n_hidden
 
+
+  ------------Initialization-----------
   U and V are initialized with glorot uniform
 
+  Notice here that R1 and R2 are reflections. Uniform initialized from -1 to 1. 
 
-  Notice here that R1 and R2 are reflections. 
+  D1, D2, D3 (diagonals) are sampled from a uniform [-pi,pi]
 
-
-
+  h_0 -- buket uniform initialized
 
   The Weight matrix is Unitary, meaning UU* = U*U = I where U* is the complex conjugate
   Keep in mind for matmul, you must have the same number columns in m1 as rows in m2
