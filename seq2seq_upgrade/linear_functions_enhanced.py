@@ -91,16 +91,16 @@ def linear(args, output_size, bias, bias_start=0.0, weight_initializer = "consta
 
   '''Nick, the matrix variable tf I think is your weight matrix'''
 
-def euclidean_norm(tensor, reduction_indicies = None, name = None):
-	with tf.op_scope(tensor + reduction_indicies, name, "euclidean_norm"): #need to have this for tf to work
+def euclidean_norm(tensor, reduction_indices = None, name = None):
+	with tf.op_scope(tensor + reduction_indices, name, "euclidean_norm"): #need to have this for tf to work
 		squareroot_tensor = tf.square(tensor)
-		euclidean_norm = tf.sum(squareroot_tensor, reduction_indicies =  reduction_indicies)
+		euclidean_norm = tf.sum(squareroot_tensor, reduction_indices =  reduction_indices)
 		return euclidean_norm
 
-def frobenius_norm(tensor, reduction_indicies = None, name = None):
-	with tf.op_scope(tensor + reduction_indicies, name, "frobenius_norm"): #need to have this for tf to work
+def frobenius_norm(tensor, reduction_indices = None, name = None):
+	with tf.op_scope(tensor + reduction_indices, name, "frobenius_norm"): #need to have this for tf to work
 		squareroot_tensor = tf.square(tensor)
-		tensor_sum = tf.sum(squareroot_tensor, reduction_indicies =  reduction_indicies)
+		tensor_sum = tf.sum(squareroot_tensor, reduction_indices =  reduction_indices)
 		frobenius_norm = tf.sqrt(tensor_sum)
 		return frobenius_norm
 

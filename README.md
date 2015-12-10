@@ -29,6 +29,7 @@ from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import seq2seq_enhanced, rnn_cel
 ####Features To Come If There's Time:
 
 - Async Loading Data during training 
+- Grid LSTM Decoder -- [Kalchbrenner's Paper]()http://arxiv.org/pdf/1507.01526v2.pdf
 - Decorrelating Representations -- [Cogswell's Paper](http://arxiv.org/pdf/1511.06068v1.pdf)
 - Curriculum Learning 
 - Removing Biases From GRU and LSTM (some reports that it improves performance)

@@ -75,16 +75,20 @@ def batch_sample_with_temperature(a, temperature=1.0):
 	'''a is [batch_size x logits]'''
 	exponent_raised = tf.exp(tf.div(a, temperature)) #start by reduction of temperature, and get rid of negative numbers with exponent
 	
-	probs = tf.div(exponent_raised, tf.reduce_sum(exponent_raised, reduction_indicies = 1)) #this will make everything add up to 100% 
+	probs = tf.div(exponent_raised, tf.reduce_sum(exponent_raised, reduction_indices = 1)) #this will make everything add up to 100% 
 
 	#reduce the sum for rounding errors
-	subtracting_factor = 0.002/tf.shape(probs)[1] #this represents the vocab size
+	subtracting_factor = tf.div(0.002,tf.cast(tf.shape(probs)[1], tf.float32)) #this represents the vocab size
 
 	probs = tf.sub(probs, subtracting_factor)
 
 	'''since tf doesn't have a multinomial function, we must break down the batch'''
 	randomized_list = []
-	for i in xrange(tf.shape(probs)[0]): #batch_number
+
+
+	for i in xrange((tf.shape(probs)[0]).tolist()): #batch_number testing for comptability
+
+	# for i in tf.range(tf.shape(probs)[0]): #batch_number
 		multinomial_part = np.random.multinomial(1, probs[0], 1)
 		randomized_list.append(multinomial_part)
 

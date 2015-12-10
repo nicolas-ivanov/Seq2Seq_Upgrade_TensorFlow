@@ -31,7 +31,7 @@ def extract_argmax_and_embed(prev, _, output_projection, embedding, temperature_
         '''output prev of xw_plus_b is [batch_size x out_units]'''
         #this might be where you gotta do the sampling with temperature during decoding  
         if temperature_decode:
-          prev_symbol = tf.stop_gradient(decoding_enhanced.batch_sampling_with_temperature(prev, temperature))
+          prev_symbol = tf.stop_gradient(decoding_enhanced.batch_sample_with_temperature(prev, temperature))
 
         else:
           prev_symbol = tf.stop_gradient(tf.argmax(prev, dimension = 1))
@@ -480,7 +480,7 @@ def norm_stabilizer_loss(logits_to_normalize, norm_regularizer_factor = 50, name
       You need to take the euclidean norm of the value -- can't find how to do this in tf....
 
       okay so Amn matrix means that the m is going down and n is going horizontal -- so we choose to reduce sum on axis 1 '''
-      difference = tf.sub(lfe.frobenius_norm(bucket_states[q+1], reduction_indicies = 1),lfe.frobenius_norm(bucket_states[q], reduction_indicies = 1))
+      difference = tf.sub(lfe.frobenius_norm(bucket_states[q+1], reduction_indices = 1),lfe.frobenius_norm(bucket_states[q], reduction_indices = 1))
       '''the difference has the dimensions of [batch_size]'''
 
       squared_sum = tf. add(squared_sum, tf.square(difference))
