@@ -12,12 +12,12 @@ from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import seq2seq_enhanced, rnn_cel
 
 ####Main Features Include:
 
-- [Different RNN layers on different GPU's](https://github.com/LeavesBreathe/Seq2Seq_Upgrade_TensorFlow#different-rnn-layers-on-multiple-gpus)
-- [Regularizing RNNs by Stabilizing Activations](https://github.com/LeavesBreathe/Seq2Seq_Upgrade_TensorFlow#norm-regularize-hidden-states-and-outputs) -- [Krueger's paper](http://arxiv.org/pdf/1511.08400.pdf)
+- [Different RNN Layers on Multiple GPU's](#different-rnn-layers-on-multiple-gpus)
+- [Regularizing RNNs by Stabilizing Activations](#norm-regularize-hidden-states-and-outputs) -- [Krueger's paper](http://arxiv.org/pdf/1511.08400.pdf)
 - [GRU Mutants](#gru-mutants) -- [Jozefowicz's paper](http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf)
-- Identity RNN's -- [Le's paper](http://arxiv.org/pdf/1504.00941v2.pdf)
-- Averaging Hidden States During Decoding
-- Temperature Sampling Within Each Time-Step in Decoding --  [Explanation Here](https://www.reddit.com/r/MachineLearning/comments/3vzlzz/reproducing_a_neural_conversational_model_in_torch/)
+- [Identity RNN's](#identity-rnn) -- [Le's paper](http://arxiv.org/pdf/1504.00941v2.pdf)
+- [Averaging Hidden States During Decoding](#averaging-hidden-states)
+- [Temperature Sampling Within Each Time-Step in Decoding](#temperature-sampling-during-decoding) --  [Explanation Here](https://www.reddit.com/r/MachineLearning/comments/3vzlzz/reproducing_a_neural_conversational_model_in_torch/)
 
 ####Currently Working On:
 
