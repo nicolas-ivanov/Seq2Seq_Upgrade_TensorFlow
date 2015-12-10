@@ -22,7 +22,7 @@ from __future__ import print_function
 import tensorflow as tf
 
 # from tensorflow.models.rnn import rnn_cell
-from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import rnn_cell_enhanced as rnn_cell
+from seq2seq_upgrade import rnn_cell_enhanced as rnn_cell
 
 from tensorflow.python.ops import control_flow_ops
 

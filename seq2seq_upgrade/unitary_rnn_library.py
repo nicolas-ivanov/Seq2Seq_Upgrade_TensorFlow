@@ -12,6 +12,7 @@ import random, sys, os
 
 import numpy as np
 from six.moves import xrange  # pylint: disable=redefined-builtin
+import theano
 import tensorflow as tf
 
 def initialize_matrix(n_in, n_out, name, rng):

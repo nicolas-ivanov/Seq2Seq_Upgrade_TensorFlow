@@ -15,8 +15,8 @@ import tensorflow as tf
 from tensorflow.models.rnn import linear
 
 
-from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import linear_functions_enhanced as lfe
-from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import unitary_linear
+from seq2seq_upgrade import linear_functions_enhanced as lfe
+from seq2seq_upgrade import unitary_linear
 
 
 # import unitary_rnn_library as url

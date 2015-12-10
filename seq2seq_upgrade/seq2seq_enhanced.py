@@ -14,10 +14,10 @@ import tensorflow as tf
 from tensorflow.models.rnn import linear
 # from tensorflow.models.rnn import rnn
 # from tensorflow.models.rnn import rnn_cell
-from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import rnn_enhanced as rnn
-from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import rnn_cell_enhanced as rnn_cell
-from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import linear_functions_enhanced as lfe
-from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import decoding_enhanced
+from seq2seq_upgrade import rnn_enhanced as rnn
+from seq2seq_upgrade import rnn_cell_enhanced as rnn_cell
+from seq2seq_upgrade import linear_functions_enhanced as lfe
+from seq2seq_upgrade import decoding_enhanced
 
 
 import cf
