@@ -26,7 +26,7 @@ from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import seq2seq_enhanced, rnn_cel
 - Diversity-Promoting Objective (1 week) -- [Li's paper](http://arxiv.org/pdf/1510.03055v1.pdf)
 
 
-####Other Features To Come If There's Time:
+####Features To Come If There's Time:
 
 - Async Loading Data during training 
 - Decorrelating Representations -- [Cogswell's Paper](http://arxiv.org/pdf/1511.06068v1.pdf)
