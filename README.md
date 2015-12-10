@@ -12,12 +12,12 @@ from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import seq2seq_enhanced, rnn_cel
 
 ####Main Features Include:
 
-- Different RNN layers on different GPU's
-- Regularizing RNNs by Stabilizing Activations -- [Krueger's paper](http://arxiv.org/pdf/1511.08400.pdf)
-- GRU Mutants -- [Jozefowicz's paper](http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf)
+- [Different RNN layers on different GPU's](https://github.com/LeavesBreathe/Seq2Seq_Upgrade_TensorFlow#different-rnn-layers-on-multiple-gpus)
+- [Regularizing RNNs by Stabilizing Activations](https://github.com/LeavesBreathe/Seq2Seq_Upgrade_TensorFlow#norm-regularize-hidden-states-and-outputs) -- [Krueger's paper](http://arxiv.org/pdf/1511.08400.pdf)
+- [GRU Mutants](#gru-mutants) -- [Jozefowicz's paper](http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf)
 - Identity RNN's -- [Le's paper](http://arxiv.org/pdf/1504.00941v2.pdf)
 - Averaging Hidden States During Decoding
-- Temperature Sampling Within Each Time-Step in Decoding [explanation here](https://www.reddit.com/r/MachineLearning/comments/3vzlzz/reproducing_a_neural_conversational_model_in_torch/)
+- Temperature Sampling Within Each Time-Step in Decoding --  [Explanation Here](https://www.reddit.com/r/MachineLearning/comments/3vzlzz/reproducing_a_neural_conversational_model_in_torch/)
 
 ####Currently Working On:
 
@@ -26,9 +26,7 @@ from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import seq2seq_enhanced, rnn_cel
 - Diversity-Promoting Objective (1 week) -- [Li's paper](http://arxiv.org/pdf/1510.03055v1.pdf)
 
 
-
-
-####Other Features That Might Happen If There's Time:
+####Other Features To Come If There's Time:
 
 - Async Loading Data during training 
 - Decorrelating Representations -- [Cogswell's Paper](http://arxiv.org/pdf/1511.06068v1.pdf)
@@ -39,6 +37,7 @@ from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import seq2seq_enhanced, rnn_cel
 You will find many, *many* comments in the code. Just like you guys, I'm still very much learning and it helps me to comment as much as possible. 
 
 Lastly, I'm still have much to learn, so I apologize for mistakes in advance. I welcome pull requests and any help. 
+
 
 
 ##Using Seq2Seq Upgrade
