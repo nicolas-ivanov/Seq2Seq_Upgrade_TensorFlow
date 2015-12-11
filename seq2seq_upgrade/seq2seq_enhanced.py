@@ -23,24 +23,25 @@ from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import decoding_enhanced
 import cf
 
 
-def extract_argmax_and_embed(prev, _, output_projection, embedding, temperature_decode = False, temperature = 1.0): #placing this function here avoids re-compile time during training!
-        """Loop_function that extracts the symbol from prev and embeds it."""
-        if output_projection is not None:
-          prev = tf.nn.xw_plus_b(prev, output_projection[0], output_projection[1])
+# def extract_argmax_and_embed(prev, _, output_projection, embedding, temperature_decode = False, temperature = 1.0): #placing this function here avoids re-compile time during training!
+#         """Loop_function that extracts the symbol from prev and embeds it."""
+#         if output_projection is not None:
+#           prev = tf.nn.xw_plus_b(prev, output_projection[0], output_projection[1])
 
-        '''output prev of xw_plus_b is [batch_size x out_units]'''
-        #this might be where you gotta do the sampling with temperature during decoding  
-        if temperature_decode:
-          prev_symbol = tf.stop_gradient(decoding_enhanced.batch_sample_with_temperature(prev, temperature))
+#         '''output prev of xw_plus_b is [batch_size x out_units]'''
+#         #this might be where you gotta do the sampling with temperature during decoding  
+#         if temperature_decode:
+#           prev_symbol = tf.stop_gradient(decoding_enhanced.batch_sample_with_temperature(prev, temperature))
 
-        else:
-          prev_symbol = tf.stop_gradient(tf.argmax(prev, dimension = 1))
+#         else:
+#           prev_symbol = tf.stop_gradient(tf.argmax(prev, dimension = 1))
 
-        #be careful of batch sizing here nick!
-        emb_prev = tf.nn.embedding_lookup(embedding, prev_symbol) #this reconverts it to the embedding I believe
-        return emb_prev
+#         #be careful of batch sizing here nick!
+#         emb_prev = tf.nn.embedding_lookup(embedding, prev_symbol) #this reconverts it to the embedding I believe
+#         return emb_prev
 
 def average_hidden_states(decoder_states, average_hidden_state_influence = 0.5, name = None):
+  print('WARNING YOU ARE USING HIDDEN STATES LINE 45ISH=========================================================')
   with tf.op_scope(decoder_states + average_hidden_state_influence, name, "average_hidden_states"):
     mean_decoder_states = tf.reduce_mean(decoder_states, 0) #nick double check the axis is right!
     final_decoder_state = tf.add((1 - average_hidden_state_influence) * decoder_states[-1], average_hidden_state_influence*mean_decoder_states)
@@ -52,8 +53,7 @@ def average_hidden_states(decoder_states, average_hidden_state_influence = 0.5, 
 def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
                       output_size=None, num_heads=1, loop_function=None,
                       dtype=tf.float32, scope=None, average_states = False, average_hidden_state_influence = 0.5,
-                      temperature_decode = False, temperature = 1.0, output_projection = None,
-                      embedding = None):
+                      temperature_decode = False, temperature = 1.0):
   """RNN decoder with attention for the sequence-to-sequence model.
 
   Args:
@@ -119,6 +119,7 @@ def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
       v.append(tf.get_variable("AttnV_%d" % a, [attention_vec_size]))
 
     states = [initial_state]
+
     def attention(query): #this is part of the attention_decoder. It is placed outside to avoid re-compile time. 
       """Put attention masks on hidden using hidden_features and query."""
       ds = []  # Results of attention reads will be stored here.
@@ -164,6 +165,7 @@ def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
       hidden_state_input = states[-1]
       if average_states:
         '''implement averaging of states'''
+        print('WARNING YOU HAVE OPTED TO USE THE AVERAGING OF STATES!!!!!!!!!!!!!!!!!!!!!@@@@@@@@@@@')
         hidden_state_input = average_hidden_states(states, average_hidden_state_influence) 
 
       # Run the RNN.
@@ -235,23 +237,23 @@ def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,
       embedding = tf.get_variable("embedding", [num_symbols, cell.input_size])
 
 
-
-    loop_function = None
-    if feed_previous:
-      def extract_argmax_and_embed(prev, _, temperature_decode = False, temperature = 1.0): #placing this function here avoids re-compile time during training!
+    def extract_argmax_and_embed(prev, _, temperature_decode = False, temperature = 1.0): #placing this function here avoids re-compile time during training!
         """Loop_function that extracts the symbol from prev and embeds it."""
         if output_projection is not None:
           prev = tf.nn.xw_plus_b(prev, output_projection[0], output_projection[1])
         '''output prev of xw_plus_b is [batch_size x out_units]'''
         #this might be where you gotta do the sampling with temperature during decoding  
         if temperature_decode:
+          print('YOU ARE USING TEMPERATURE DECODING WARNING ---@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@2')
           prev_symbol = tf.stop_gradient(decoding_enhanced.batch_sample_with_temperature(prev, temperature))
         else:
-          prev_symbol = tf.stop_gradient(tf.argmax(prev, dimension = 1))
+          prev_symbol = tf.stop_gradient(tf.argmax(prev, 1))
         #be careful of batch sizing here nick!
         emb_prev = tf.nn.embedding_lookup(embedding, prev_symbol) #this reconverts it to the embedding I believe
         return emb_prev
 
+    loop_function = None
+    if feed_previous:
       loop_function = extract_argmax_and_embed #oh wow they are literally passing a function right here....
 
     emb_inp = [tf.nn.embedding_lookup(embedding, i) for i in decoder_inputs]
@@ -262,7 +264,7 @@ def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,
       emb_inp, initial_state, attention_states, cell, output_size=output_size,
       num_heads=num_heads, loop_function=loop_function, average_states = average_states, 
       average_hidden_state_influence = average_hidden_state_influence, temperature_decode = temperature_decode,
-      temperature = temperature, output_projection = output_projection, embedding = embedding)
+      temperature = temperature)
 
 
 def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
@@ -469,6 +471,9 @@ def sequence_loss(logits, targets, weights, num_decoder_symbols,
 
 
 def norm_stabilizer_loss(logits_to_normalize, norm_regularizer_factor = 50, name = None):
+
+
+  print('WARNING ------YOU HAVE OPTED TO USE NORM STABILIZER LOSS -------------------------------------------===================@@@@@@@@@@@@@@@@@@@')
   '''Will add a Norm Stabilizer Loss 
 
     Args:
