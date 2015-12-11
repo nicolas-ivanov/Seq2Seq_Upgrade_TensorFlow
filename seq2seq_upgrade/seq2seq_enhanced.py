@@ -47,21 +47,6 @@ def average_hidden_states(decoder_states, average_hidden_state_influence = 0.5, 
   return final_decoder_state
 
 
-def attention(query, num_heads, attention_vec_size, v, hidden_features, attn_length, hidden, attn_size): #this is part of the attention_decoder. It is placed outside to avoid re-compile time. 
-  """Put attention masks on hidden using hidden_features and query."""
-  ds = []  # Results of attention reads will be stored here.
-  for a in xrange(num_heads):
-    with tf.variable_scope("Attention_%d" % a):
-      y = linear.linear(query, attention_vec_size, True)
-      y = tf.reshape(y, [-1, 1, 1, attention_vec_size])
-      # Attention mask is a softmax of v^T * tanh(...).
-      s = tf.reduce_sum(v[a] * tf.tanh(hidden_features[a] + y), [2, 3])
-      a = tf.nn.softmax(s)
-      # Now calculate the attention-weighted vector d.
-      d = tf.reduce_sum(tf.reshape(a, [-1, attn_length, 1, 1]) * hidden,
-                        [1, 2])
-      ds.append(tf.reshape(d, [-1, attn_size]))
-  return ds
 
 
 def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
@@ -95,7 +80,7 @@ def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
       Output i is computed from input i (which is either i-th decoder_inputs or
       loop_function(output {i-1}, i)) as follows. First, we run the cell
       on a combination of the input and previous attention masks:
-        cell_output, new_state = cell(linear(input, prev_attn), prev_state).
+        cell_output, new_state = cell(linear(input, prev_attn), prev_state)
       Then, we calculate new attention masks:
         new_attn = softmax(V^T * tanh(W * attention_states + U * new_state))
       and then we calculate the output:
@@ -134,6 +119,21 @@ def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
       v.append(tf.get_variable("AttnV_%d" % a, [attention_vec_size]))
 
     states = [initial_state]
+    def attention(query): #this is part of the attention_decoder. It is placed outside to avoid re-compile time. 
+      """Put attention masks on hidden using hidden_features and query."""
+      ds = []  # Results of attention reads will be stored here.
+      for a in xrange(num_heads):
+        with tf.variable_scope("Attention_%d" % a):
+          y = linear.linear(query, attention_vec_size, True)
+          y = tf.reshape(y, [-1, 1, 1, attention_vec_size])
+          # Attention mask is a softmax of v^T * tanh(...).
+          s = tf.reduce_sum(v[a] * tf.tanh(hidden_features[a] + y), [2, 3])
+          a = tf.nn.softmax(s)
+          # Now calculate the attention-weighted vector d.
+          d = tf.reduce_sum(tf.reshape(a, [-1, attn_length, 1, 1]) * hidden,
+                            [1, 2])
+          ds.append(tf.reshape(d, [-1, attn_size]))
+      return ds
 
     outputs = []
     prev = None
@@ -151,7 +151,7 @@ def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
       # If loop_function is set, we use it instead of decoder_inputs.
       if loop_function is not None and prev is not None:
         with tf.variable_scope("loop_function", reuse=True):
-          inp = tf.stop_gradient(loop_function(prev, i, output_projection, embedding, temperature_decode = temperature_decode,
+          inp = tf.stop_gradient(loop_function(prev, i, temperature_decode = temperature_decode,
                       temperature = temperature)) #basically, stop_gradient doesn't allow inputs to be taken into account
 
       #this will make an input that is combined with attention
@@ -170,8 +170,7 @@ def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
       cell_output, new_state = cell(x, hidden_state_input) #nick, changed this to your hidden state input
       states.append(new_state)
       # Run the attention mechanism.
-      attns = attention(new_state, num_heads = num_heads, attention_vec_size = attention_vec_size,
-        v = v, hidden_features = hidden_features, attn_length = attn_length, hidden = hidden, attn_size = attn_size)
+      attns = attention(new_state)
       with tf.variable_scope("AttnOutputProjection"):
         output = linear.linear([cell_output] + attns, output_size, True)
       if loop_function is not None:
@@ -239,6 +238,20 @@ def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,
 
     loop_function = None
     if feed_previous:
+      def extract_argmax_and_embed(prev, _, temperature_decode = False, temperature = 1.0): #placing this function here avoids re-compile time during training!
+        """Loop_function that extracts the symbol from prev and embeds it."""
+        if output_projection is not None:
+          prev = tf.nn.xw_plus_b(prev, output_projection[0], output_projection[1])
+        '''output prev of xw_plus_b is [batch_size x out_units]'''
+        #this might be where you gotta do the sampling with temperature during decoding  
+        if temperature_decode:
+          prev_symbol = tf.stop_gradient(decoding_enhanced.batch_sample_with_temperature(prev, temperature))
+        else:
+          prev_symbol = tf.stop_gradient(tf.argmax(prev, dimension = 1))
+        #be careful of batch sizing here nick!
+        emb_prev = tf.nn.embedding_lookup(embedding, prev_symbol) #this reconverts it to the embedding I believe
+        return emb_prev
+
       loop_function = extract_argmax_and_embed #oh wow they are literally passing a function right here....
 
     emb_inp = [tf.nn.embedding_lookup(embedding, i) for i in decoder_inputs]

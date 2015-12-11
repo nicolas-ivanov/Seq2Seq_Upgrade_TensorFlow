@@ -76,7 +76,7 @@ Some Features are being tested while others are tested and functional. They are 
 Status | Meaning
 ------------- | -------------
 Feature Working  | Tested and Should Work as Documented
-Under Testing  | May Not Work or Produce Desired Result
+Under Testing  | May Not Work or Produce Undesired Result
 
 
 ##Different RNN Layers on Multiple GPU's
@@ -209,8 +209,8 @@ from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import seq2seq_enhanced as sse
 seq2seq_model = sse.embedding_attention_seq2seq(....,temperature_decode = True, temperature = 1.0)
 ```
 
-**Note**: Right now, you have to recompile the model each time you want to test a different temperature. Currently,
-I'm working on a way to allow you to test multiple temperatures without re-compiling. 
+**Note**: Right now, you have to recompile the model each time you want to test a different temperature. If there's time,
+I will investigate the ability to implement multiple temperatures without re-compiling. 
 
 
 

@@ -73,6 +73,9 @@ def batch_sample_with_temperature(a, temperature=1.0):
         Karpathy did it here as well: https://github.com/karpathy/char-rnn/blob/4297a9bf69726823d944ad971555e91204f12ca8/sample.lua
         '''
 	'''a is [batch_size x logits]'''
+	
+	print('basic input here')
+	print(a)
 	exponent_raised = tf.exp(tf.div(a, temperature)) #start by reduction of temperature, and get rid of negative numbers with exponent
 	
 	probs = tf.div(exponent_raised, tf.reduce_sum(exponent_raised, reduction_indices = 1)) #this will make everything add up to 100% 
@@ -85,12 +88,20 @@ def batch_sample_with_temperature(a, temperature=1.0):
 	'''since tf doesn't have a multinomial function, we must break down the batch'''
 	randomized_list = []
 
-
-	for i in xrange((tf.shape(probs)[0]).tolist()): #batch_number testing for comptability
+	'''right now problem is that you can not use np.multinomial to evaluate a tensor, so were
+	waiting on tensorflow to update tf with this feature.'''
+	# for i in xrange((tf.shape(probs)[0]).tolist()): #batch_number testing for comptability
 
 	# for i in tf.range(tf.shape(probs)[0]): #batch_number
-		multinomial_part = np.random.multinomial(1, probs[0], 1)
-		randomized_list.append(multinomial_part)
+
+	print(probs)
+
+
+	print('testing if you can get probs[0]')
+
+
+	multinomial_part = np.random.multinomial(1, probs, 1) #this is simulating the part of you rolling a dice 
+	randomized_list.append(multinomial_part)
 
 	#concatenate multinomial parts back into a tensor
 	randomized_2d = tf.convert_to_tensor(randomized_list) #after this step, it should be a 2d tensor I believe!
@@ -101,3 +112,35 @@ def batch_sample_with_temperature(a, temperature=1.0):
 	final_number = tf.argmax(randomized_2d, dimension = 1) #you want dimension = 1 because you are argmaxing across rows.
 
 	return final_number
+
+'''Cost Functions as defined by http://arxiv.org/pdf/1510.03055v1.pdf to encourage diversity within generated content'''
+
+def pTS_minus_LamdaUT_cost():
+	print('testing')
+
+#need to make sure you take sentence length into account. 
+
+'''This cost function is linearly combined with the length penalization, gamma, and L_t is the length of the sentence
+
+The softmax cross_entropy cost function will be substituted with the maximum mutual information
+
+these pairs are chosne betwen p(S,T)/p(S)p(T)
+
+Normally a softmax is calculated by the multiplication of series of wrong numbers -- this is denoted by the cross_entropy cost. 
+
+the | in p(a|b) means A given b -- conditional probability
+
+P(a|b) = P(a ^ b) / P(b)
+
+if p(b) is undefined, then the p(a|b) is undefined
+
+lamda is a hyperparameter that controls how much to penalize generic responses
+
+
+
+'''
+
+
+
+def pTS_plus_LamdapST_cost():
+	print('testing')
