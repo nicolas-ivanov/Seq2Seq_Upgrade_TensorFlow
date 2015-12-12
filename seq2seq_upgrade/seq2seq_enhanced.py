@@ -12,10 +12,12 @@ import tensorflow as tf
 from tensorflow.models.rnn import linear
 # from tensorflow.models.rnn import rnn
 # from tensorflow.models.rnn import rnn_cell
+
 from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import rnn_enhanced as rnn
 from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import rnn_cell_enhanced as rnn_cell
-from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import linear_functions_enhanced as lfe
-from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import decoding_enhanced
+
+# from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import linear_functions_enhanced as lfe
+# from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import decoding_enhanced
 
 
 import cf
@@ -39,7 +41,7 @@ import cf
 #         return emb_prev
 
 def average_hidden_states(decoder_states, average_hidden_state_influence = 0.5, name = None):
-  print('WARNING YOU ARE USING HIDDEN STATES LINE 45ISH=========================================================')
+  print('WARNING YOU ARE USING HIDDEN STATES LINE 45ISH========================================@@@@@@@@@@@@@@@@')
   with tf.op_scope(decoder_states + average_hidden_state_influence, name, "average_hidden_states"):
     mean_decoder_states = tf.reduce_mean(decoder_states, 0) #nick double check the axis is right!
     final_decoder_state = tf.add((1 - average_hidden_state_influence) * decoder_states[-1], average_hidden_state_influence*mean_decoder_states)

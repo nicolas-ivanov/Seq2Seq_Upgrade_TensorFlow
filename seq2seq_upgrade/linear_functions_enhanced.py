@@ -29,7 +29,7 @@ def identity_initializer():
     return _initializer
 
 
-def linear(args, output_size, bias, bias_start=0.0, weight_initializer = "constant", scope=None):
+def enhanced_linear(args, output_size, bias, bias_start=0.0, weight_initializer = "constant", scope=None):
   """Linear map: sum_i(args[i] * W[i]), where W[i] is a variable.
 
   Args:
@@ -37,7 +37,7 @@ def linear(args, output_size, bias, bias_start=0.0, weight_initializer = "consta
     output_size: int, second dimension of W[i].
     bias: boolean, whether to add a bias term or not.
     bias_start: starting value to initialize the bias; 0 by default.
-    scope: VariableScope for the created subgraph; defaults to "Linear".
+    scope: VariableScope for the created subgraph; defaults to "Enhanced_Linear".
 
   Returns:
     A 2D Tensor with shape [batch x output_size] equal to
@@ -62,7 +62,7 @@ def linear(args, output_size, bias, bias_start=0.0, weight_initializer = "consta
       total_arg_size += shape[1]
 
   # Now the computation.
-  with tf.variable_scope(scope or "Linear"): #in this linear scope, the library that you're retriving is Linear
+  with tf.variable_scope(scope or "Enhanced_Linear"): #in this linear scope, the library that you're retriving is Linear
   #this will make a class for these variables so you can reference them in the future. 
 
     '''initialize weight matrix properly'''

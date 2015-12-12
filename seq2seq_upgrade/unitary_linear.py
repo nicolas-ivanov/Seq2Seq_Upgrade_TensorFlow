@@ -151,7 +151,7 @@ def vec_permutation_tf(input, n_hidden, index_permute): #I don't get this...why 
 
 
 
-def linear(args, output_size, bias, bias_start=0.0, scope=None):
+def unitary_linear(args, output_size, bias, bias_start=0.0, scope=None):
   """Linear map: sum_i(args[i] * W[i]), where W[i] is a variable.
 
   Args:
@@ -184,7 +184,7 @@ def linear(args, output_size, bias, bias_start=0.0, scope=None):
       total_arg_size += shape[1]
 
   # Now the computation.
-  with tf.variable_scope(scope or "Linear"):
+  with tf.variable_scope(scope or "Unitary_Linear"):
     matrix = tf.get_variable("Matrix", [total_arg_size, output_size])
     if len(args) == 1:
       res = tf.matmul(args[0], matrix)
