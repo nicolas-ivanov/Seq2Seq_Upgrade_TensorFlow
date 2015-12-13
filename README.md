@@ -42,7 +42,7 @@ Lastly, I'm still have much to learn, so I apologize for mistakes in advance. I 
 
 
 
-##Using Seq2Seq Upgrade
+##Using Project RNN Enhancement
 
 Import All RNN Materials from Project_RNN_Enhancement Only!
 
@@ -69,7 +69,7 @@ or a bit longer version in case the previous one didn't work
     cd Project_RNN_Enhancement
     sudo python setup.py build & sudo python setup.py install
     
-After that you hopefully be able to simply write `import seq2seq_upgrade`
+After that you hopefully be able to simply write `import Project_RNN_Enhancement`
 
 ------
 Some Features are being tested while others are tested and functional. They are labelled:
