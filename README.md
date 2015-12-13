@@ -7,7 +7,7 @@ That's why there's this additional python package. This is meant to work in conj
 
 ```python
 sys.path.insert(0, os.environ['HOME']) #add the dir that you cloned to
-from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import seq2seq_enhanced, rnn_cell_enhanced
+from Project_RNN_Enhancement.rnn_enhancement import seq2seq_enhanced, rnn_cell_enhanced
 ```
 
 ####Main Features Include:
@@ -44,9 +44,9 @@ Lastly, I'm still have much to learn, so I apologize for mistakes in advance. I 
 
 ##Using Seq2Seq Upgrade
 
-Import All RNN Materials from Seq2Seq_Upgrade_TensorFlow_Tensorflow Only!
+Import All RNN Materials from Project_RNN_Enhancement Only!
 
-If you are using Seq2Seq_Upgrade_Tensorflow, please do not import:
+If you are using Project_RNN_Enhancement, please do not import:
 - rnn.py
 - rnn_cell.py
 - seq2seq.py
@@ -57,16 +57,16 @@ from the regular tensorflow. Instead import:
 - rnn_cell_enhanced.py
 - seq2seq_enhanced.py
 
-from Seq2Seq_Upgrade_Tensorflow. Otherwise class inheritance will be thrown off, and you will get an `isinstance` error!
+from Project_RNN_Enhancement. Otherwise class inheritance will be thrown off, and you will get an `isinstance` error!
 
 You can also try to install seq2seq_upgrade as a python package
 
-    sudo pip install git+ssh://github.com/LeavesBreathe/Seq2Seq_Upgrade_TensorFlow.git
+    sudo pip install git+ssh://github.com/LeavesBreathe/Project_RNN_Enhancement.git
 
 or a bit longer version in case the previous one didn't work
 
-    git clone git@github.com:LeavesBreathe/Seq2Seq_Upgrade_TensorFlow.git
-    cd Seq2Seq_Upgrade_TensorFlow
+    git clone git@github.com:LeavesBreathe/Project_RNN_Enhancement.git
+    cd Project_RNN_Enhancement
     sudo python setup.py build & sudo python setup.py install
     
 After that you hopefully be able to simply write `import seq2seq_upgrade`
@@ -89,7 +89,7 @@ To call in GRU for gpu 0, simply call in the class
 
 
 ```python      
-from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import rnn_cell_enhanced
+from Project_RNN_Enhancement.rnn_enhancement import rnn_cell_enhanced
 
 #assuming you're using two gpu's
 first_layer = rnn_cell_enhanced.GRUCell(size, gpu_for_layer = 0)
@@ -102,7 +102,7 @@ cell = rnn_cell.MultiRNNCell(([first_layer]*(num_layers/2)) + ([second_layer]*(n
 You can apply dropout on a specific GPU as well:
 
 ```python
-from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import rnn_cell_enhanced
+from Project_RNN_Enhancement.rnn_enhancement import rnn_cell_enhanced
 
 first_layer = rnn_cell_enhanced.GRUCell(size, gpu_for_layer = 1)
 dropout_first_layer = rnn_cell_enhanced.DropoutWrapper(first_layer, output_keep_prob = 0.80, gpu_for_layer = 1)
@@ -121,7 +121,7 @@ By default this feature is set to off.
 To use:
 
 ```python      
-from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import seq2seq_enhanced
+from Project_RNN_Enhancement.rnn_enhancement import seq2seq_enhanced
 #to regularize both
 seq2seq_enhanced.model_with_buckets(...norm_regularize_hidden_states = True, 
 										norm_regularize_logits = True, norm_regularize_factor = 50)
@@ -145,7 +145,7 @@ These mutants do better in some seq2seq tasks. Memory wise, they approximately t
 To use this simply:
 
 ```python
-from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import rnn_cell_enhanced
+from Project_RNN_Enhancement.rnn_enhancement import rnn_cell_enhanced
 
 first_layer = rnn_cell_enhanced.JZS1Cell(size)
 ```
@@ -164,7 +164,7 @@ Mutants are called in by:
 Allows you to run an IRNN (on specified gpu of your choice). To call in:
 
 ```python
-from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import rnn_cell_enhanced
+from Project_RNN_Enhancement.rnn_enhancement import rnn_cell_enhanced
 
 first_layer = rnn_cell_enhanced.IdentityRNNCell(size, gpu_for_layer = 0)
 ```
@@ -178,7 +178,7 @@ Allows you to set ratio of last hidden state to mean hidden state
 Simply call in:
 
 ```python
-from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import seq2seq_enhanced as sse
+from Project_RNN_Enhancement.rnn_enhancement import seq2seq_enhanced as sse
 
 seq2seq_model = sse.embedding_attention_seq2seq(....,average_states = True, average_hidden_state_influence = 0.5)
 ```
@@ -205,7 +205,7 @@ Go Symbol --> Decoder Timestep 1 --> Dice Roll on Distribution --> One Word Sele
 To use:
 
 ```python
-from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import seq2seq_enhanced as sse
+from Project_RNN_Enhancement.rnn_enhancement import seq2seq_enhanced as sse
 
 seq2seq_model = sse.embedding_attention_seq2seq(....,temperature_decode = True, temperature = 1.0)
 ```

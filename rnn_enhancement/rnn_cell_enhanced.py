@@ -10,12 +10,12 @@ from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
 
 
-from Seq2Seq_Upgrade_TensorFlow.rnn_enhancement import linear_enhanced as linear
+from Project_RNN_Enhancement.rnn_enhancement import linear_enhanced as linear
 
 
 #Warning commenting the two lines below allows it to work!
-from Seq2Seq_Upgrade_TensorFlow.rnn_enhancement import linear_functions_enhanced as lfe
-from Seq2Seq_Upgrade_TensorFlow.rnn_enhancement import unitary_linear
+from Project_RNN_Enhancement.rnn_enhancement import linear_functions_enhanced as lfe
+from Project_RNN_Enhancement.rnn_enhancement import unitary_linear
 
 
 
