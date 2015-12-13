@@ -10,7 +10,7 @@ import numpy as np
 from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
 
-
+print('Linear functions enhaned has been imported')
 
 def identity_initializer():
     def _initializer(shape, dtype=tf.float32):
@@ -67,9 +67,9 @@ def enhanced_linear(args, output_size, bias, bias_start=0.0, weight_initializer 
 
     '''initialize weight matrix properly'''
     if weight_initializer == "constant":
-      matrix = tf.get_variable("Matrix", [total_arg_size, output_size]) #i think this is retrieving the weight matrix
+      matrix = tf.get_variable("Identity_Matrix", [total_arg_size, output_size]) #i think this is retrieving the weight matrix
     elif weight_initializer == "identity":
-      matrix = tf.get_variable("Matrix", [total_arg_size, output_size], initializer = identity_initializer()) #fix this when you get a chance for identity?
+      matrix = tf.get_variable("Enhanced_Matrix", [total_arg_size, output_size], initializer = identity_initializer()) #fix this when you get a chance for identity?
     else:
       raise ValueError("weight_initializer not set correctly: %s" % weight_initializer)
 
@@ -81,7 +81,7 @@ def enhanced_linear(args, output_size, bias, bias_start=0.0, weight_initializer 
       res = tf.matmul(tf.concat(1, args), matrix)
     if not bias:
       return res
-    bias_term = tf.get_variable("Bias", [output_size],
+    bias_term = tf.get_variable("Enhanced_Bias", [output_size],
                                 initializer=tf.constant_initializer(bias_start)) #this is retrieving the bias term that you would use
     '''the tf.constant_initializer is used because it makes all one value'''
   return res + bias_term

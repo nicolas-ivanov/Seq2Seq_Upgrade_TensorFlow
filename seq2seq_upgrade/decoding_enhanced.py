@@ -95,7 +95,7 @@ def pTS_minus_LamdaUT_cost():
 
 	where:
 	L_t is the length of the sequence generated
-	Gamma is the amount that length affects the Score
+	Gamma is the amount that length affects the Score'''
 
 
 

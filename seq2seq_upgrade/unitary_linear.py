@@ -9,6 +9,8 @@ from __future__ import print_function
 
 import tensorflow as tf
 
+print('Unitary Linear has been imported')
+
 
 #ORIGINAL FUNCTION
 def times_diag(input, n_hidden, diag): #convert this to tensorflow....
@@ -185,14 +187,14 @@ def unitary_linear(args, output_size, bias, bias_start=0.0, scope=None):
 
   # Now the computation.
   with tf.variable_scope(scope or "Unitary_Linear"):
-    matrix = tf.get_variable("Matrix", [total_arg_size, output_size])
+    matrix = tf.get_variable("Unitary_Matrix", [total_arg_size, output_size])
     if len(args) == 1:
       res = tf.matmul(args[0], matrix)
     else:
       res = tf.matmul(tf.concat(1, args), matrix)
     if not bias:
       return res
-    bias_term = tf.get_variable("Bias", [output_size],
+    bias_term = tf.get_variable("Unitary_Bias", [output_size],
                                 initializer=tf.constant_initializer(bias_start))
   return res + bias_term
 

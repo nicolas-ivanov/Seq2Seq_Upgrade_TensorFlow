@@ -16,8 +16,8 @@ from tensorflow.models.rnn import linear
 from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import rnn_enhanced as rnn
 from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import rnn_cell_enhanced as rnn_cell
 
-# from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import linear_functions_enhanced as lfe
-# from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import decoding_enhanced
+from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import linear_functions_enhanced as lfe
+from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import decoding_enhanced
 
 
 import cf
