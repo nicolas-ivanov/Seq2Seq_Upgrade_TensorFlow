@@ -18,12 +18,12 @@ from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import linear_enhanced as linear
 # from tensorflow.models.rnn import rnn
 # from tensorflow.models.rnn import rnn_cell
 
-from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import rnn_enhanced as rnn
-from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import rnn_cell_enhanced as rnn_cell
+from Seq2Seq_Upgrade_TensorFlow.rnn_enhancement import rnn_enhanced as rnn
+from Seq2Seq_Upgrade_TensorFlow.rnn_enhancement import rnn_cell_enhanced as rnn_cell
 
 #Warning commenting the two lines below out allows it to work!
-from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import linear_functions_enhanced as lfe
-from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import decoding_enhanced
+from Seq2Seq_Upgrade_TensorFlow.rnn_enhancement import linear_functions_enhanced as lfe
+from Seq2Seq_Upgrade_TensorFlow.rnn_enhancement import decoding_enhanced
 
 
 
