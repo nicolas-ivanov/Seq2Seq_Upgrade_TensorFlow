@@ -13,6 +13,8 @@ import tensorflow as tf
 print('Linear functions enhaned has been imported')
 
 def identity_initializer():
+
+    print('Warning -- You have opted to use the identity_initializer for your identity matrix!!!!!!!!!!!!!!!!@@@@@@')
     def _initializer(shape, dtype=tf.float32):
         if len(shape) == 1:
             return tf.constant_op.constant(0., dtype=dtype, shape=shape)
@@ -46,6 +48,10 @@ def enhanced_linear(args, output_size, bias, bias_start=0.0, weight_initializer 
   Raises:
     ValueError: if some of the arguments has unspecified or wrong shape.
   """
+
+
+  print('Warning -- you have opted to use enhanced_linear function!@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@')
+
   assert args
   if not isinstance(args, (list, tuple)):
     args = [args]

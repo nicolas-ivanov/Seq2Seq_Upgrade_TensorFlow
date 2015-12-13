@@ -7,8 +7,11 @@ from __future__ import print_function
 import numpy as np
 
 from six.moves import xrange  # pylint: disable=redefined-builtin
+
+
 import tensorflow as tf
 
+print('You are using the decoding_enhanced library!')
 
 def sample_with_temperature(a, temperature=1.0):
 	'''this function takes logits input, and produces a specific number from the array.
@@ -85,17 +88,50 @@ def batch_sample_with_temperature(a, temperature=1.0):
 
 '''Cost Functions as defined by http://arxiv.org/pdf/1510.03055v1.pdf to encourage diversity within generated content'''
 
+def G_i_piecewise_variance(batch_size, total_timesteps, gamma = 5):
+	'''returns g(i) function for U(T) for diversity paper
+	Input:
+		total_timesteps: number of total timesteps made
+		gamma: the number that you stop switch gamma to 0
+	Output:
+		Value of G which is either a 0 or a 1
+		'''
+	with tf.op_scope(batch_size+total_timesteps + gamma, "G_i_piecewise_variance"):
+		
+		#make a list of the tensor you want
+
+		#convert this list into a tensor
+
+		tf.concat(1, [ones_matrix, zeros_matrix])
+		#it might be better to just concatenate two separate 0's and 1's matrices
+		tf.constant
+
+
+def U_t_variance(timestep_outputs_matrix, total_timesteps, gamma = 5):
+
+	with tf.op_scope(timestep_outputs_matrix + total_timesteps + gamma, "U_t_variance"):
+
+		G_i_matrix = G_i_piecewise_variance(timestep_outputs_matrix, total_timesteps)
+		tf.mul(timestep_outputs_matrix, )
+		tf.reduce_prod(timestep_outputs_matrix_with_g)
+
+
+
 def pTS_minus_LamdaUT_cost():
 
 	'''This function can be implemented at each timestep! 
-	You do not have to wait for your whole sequence to be generated
+	You do not have to wait for your whole sequence to be generated, so lets do this one first.
 
 
 	Score(T) = p(T|S) - Lamda*U(T) + Gamma*L_t
 
 	where:
 	L_t is the length of the sequence generated
-	Gamma is the amount that length affects the Score'''
+	Gamma is the amount that length affects the Score
+
+	note that L_t is linearly combined with ultimate score for the target T
+
+	Then there is the function g(x) that is piecewise'''
 
 
 

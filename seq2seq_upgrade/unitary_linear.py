@@ -146,13 +146,6 @@ def vec_permutation_tf(input, n_hidden, index_permute): #I don't get this...why 
 
 
 
-
-
-
-
-
-
-
 def unitary_linear(args, output_size, bias, bias_start=0.0, scope=None):
   """Linear map: sum_i(args[i] * W[i]), where W[i] is a variable.
 

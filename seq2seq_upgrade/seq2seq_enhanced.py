@@ -9,16 +9,24 @@ from __future__ import print_function
 from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
 
-from tensorflow.models.rnn import linear
+
+from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import linear_enhanced as linear
+
 # from tensorflow.models.rnn import rnn
 # from tensorflow.models.rnn import rnn_cell
 
 from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import rnn_enhanced as rnn
 from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import rnn_cell_enhanced as rnn_cell
 
+
+#Warning commenting the two lines below out allows it to work!
 from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import linear_functions_enhanced as lfe
 from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import decoding_enhanced
 
+
+
+
+#in the last run you uncommented both of these!
 
 import cf
 
