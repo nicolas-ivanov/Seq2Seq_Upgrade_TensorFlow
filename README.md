@@ -1,7 +1,7 @@
-# Seq2Seq_Upgrade_TensorFlow
-Additional Sequence to Sequence Features for TensorFlow
+# Project RNN Enhancement
+Additional RNN and Sequence to Sequence Features for TensorFlow
 
-Hey Guys, TensorFlow is great, but there are some seq2seq features that could be added. The goal is to add them as research in this field unfolds.
+TensorFlow is great, but there are some RNN and Seq2Seq features that could be added. The goal is to add them as research in this field unfolds.
 
 That's why there's this additional python package. This is meant to work in conjunction with TensorFlow. Simply clone this and import as:
 
@@ -22,8 +22,9 @@ from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import seq2seq_enhanced, rnn_cel
 ####Currently Working On:
 
 - Unitary RNN (will take at least 2 weeks) --[Arjovsky's paper](http://arxiv.org/abs/1511.06464v2.pdf)
-- Adversarial Seq2Seq Training (will take at least 4 or 5 weeks)
 - Diversity-Promoting Objective (1 week) -- [Li's paper](http://arxiv.org/pdf/1510.03055v1.pdf)
+- L2 Regularization on Seq2Seq model
+- Skip-connections in between RNN's 
 
 
 ####Features To Come If There's Time:
