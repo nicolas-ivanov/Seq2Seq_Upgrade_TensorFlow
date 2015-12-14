@@ -18,6 +18,7 @@ from Project_RNN_Enhancement.rnn_enhancement import seq2seq_enhanced, rnn_cell_e
 - [Identity RNN's](#identity-rnn) -- [Le's paper](http://arxiv.org/pdf/1504.00941v2.pdf)
 - [Averaging Hidden States During Decoding](#averaging-hidden-states)
 - [Temperature Sampling Within Each Time-Step in Decoding](#temperature-sampling-during-decoding) --  [Explanation Here](https://www.reddit.com/r/MachineLearning/comments/3vzlzz/reproducing_a_neural_conversational_model_in_torch/)
+- Orthgonal, Identity, and Uniform Initialization of Weights
 
 ####Currently Working On:
 
@@ -214,4 +215,23 @@ seq2seq_model = sse.embedding_attention_seq2seq(....,temperature_decode = True, 
 I will investigate the ability to implement multiple temperatures without re-compiling. 
 
 
+##Orthgonal, Identity, and Uniform Initialization of Weights
+####Under Testing
 
+Allows one to initialize your weights for each layer. To use:
+
+```python      
+from Project_RNN_Enhancement.rnn_enhancement import rnn_cell_enhanced
+
+#assuming you're using two gpu's
+first_layer = rnn_cell_enhanced.GRUCell(size, gpu_for_layer = 0, weight_initializer = "orthogonal")
+second_layer = rnn_cell_enhanced.JZS1Cell(size, gpu_for_layer = 1, weight_initalizer = "uniform_unit")
+
+cell = rnn_cell.MultiRNNCell(([first_layer]*(num_layers/2)) + ([second_layer]*(num_layers/2)))
+```
+
+Options for Initializing weights `weight_initializer`:
+
+- "uniform_unit": Will uniformly initialize weights accordingly [here](https://www.tensorflow.org/versions/master/api_docs/python/state_ops.html#uniform_unit_scaling_initializer). Use this one if your just beginning.
+- "orthogonal": Will randomly initialize weights orthogonally
+- "identity": Will initialize weights in form of identity matrix

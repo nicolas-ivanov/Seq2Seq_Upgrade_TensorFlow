@@ -17,21 +17,35 @@ def identity_initializer():
     print('Warning -- You have opted to use the identity_initializer for your identity matrix!!!!!!!!!!!!!!!!@@@@@@')
     def _initializer(shape, dtype=tf.float32):
         if len(shape) == 1:
-            return tf.constant_op.constant(0., dtype=dtype, shape=shape)
+            return tf.constant(0., dtype=dtype, shape=shape)
         elif len(shape) == 2 and shape[0] == shape[1]:
-            return tf.constant_op.constant(np.identity(shape[0], dtype))
+            return tf.constant(np.identity(shape[0], dtype))
         elif len(shape) == 4 and shape[2] == shape[3]:
             array = np.zeros(shape, dtype=float)
             cx, cy = shape[0]/2, shape[1]/2
             for i in range(shape[2]):
                 array[cx, cy, i, i] = 1
-            return tf.constant_op.constant(array, dtype=dtype)
+            return tf.constant(array, dtype=dtype)
         else:
             raise
     return _initializer
 
+def orthogonal_initializer():
+    ''' From Lasagne and Keras. Reference: Saxe et al., http://arxiv.org/abs/1312.6120
+    '''
+    print('Warning -- You have opted to use the orthogonal_initializer!!!!!!!!!!!!!!!!@@@@@@')
+    def _initializer(shape, scale = 1.1, dtype=tf.float32):
+      flat_shape = (shape[0], np.prod(shape[1:]))
+      a = np.random.normal(0.0, 1.0, flat_shape)
+      u, _, v = np.linalg.svd(a, full_matrices=False)
+      # pick the one with the correct shape
+      q = u if u.shape == flat_shape else v
+      q = q.reshape(shape)
 
-def enhanced_linear(args, output_size, bias, bias_start=0.0, weight_initializer = "constant", scope=None):
+      return tf.constant(scale * q[:shape[0], :shape[1]])
+    return _initializer
+
+def enhanced_linear(args, output_size, bias, bias_start=0.0, weight_initializer = "uniform_unit", scope=None):
   """Linear map: sum_i(args[i] * W[i]), where W[i] is a variable.
 
   Args:
@@ -72,12 +86,14 @@ def enhanced_linear(args, output_size, bias, bias_start=0.0, weight_initializer 
   #this will make a class for these variables so you can reference them in the future. 
 
     '''initialize weight matrix properly'''
-    if weight_initializer == "constant":
+    if weight_initializer == "uniform_unit":
       matrix = tf.get_variable("Identity_Matrix", [total_arg_size, output_size]) #i think this is retrieving the weight matrix
     elif weight_initializer == "identity":
       matrix = tf.get_variable("Enhanced_Matrix", [total_arg_size, output_size], initializer = identity_initializer()) #fix this when you get a chance for identity?
+    elif weight_initializer == "orthogonal":
+      matrix = tf.get_variable("Orthogonal_Matrix", [total_arg_size, output_size], initializer = identity_initializer()) #fix this when you get a chance for identity?
     else:
-      raise ValueError("weight_initializer not set correctly: %s" % weight_initializer)
+      raise ValueError("weight_initializer not set correctly: %s Initializers: uniform_unit, identity, orthogonal" % weight_initializer)
 
 
     #this will create a variable if it hasn't been created yet! we need to make it an identiy matrix?

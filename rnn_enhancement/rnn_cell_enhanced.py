@@ -84,9 +84,10 @@ class RNNCell(object):
 class BasicRNNCell(RNNCell):
   """The most basic RNN cell. Tanh activation"""
 
-  def __init__(self, num_units, gpu_for_layer):
+  def __init__(self, num_units, gpu_for_layer, weight_initializer = "uniform_unit"):
     self._num_units = num_units
-    self._gpu_for_layer = gpu_for_layer
+    self._gpu_for_layer = gpu_for_layer 
+    self._weight_initializer = weight_initializer
 
 
   @property
@@ -105,16 +106,17 @@ class BasicRNNCell(RNNCell):
     """Most basic RNN: output = new_state = tanh(W * input + U * state + B)."""
     with tf.device("/gpu:"+str(self._gpu_for_layer)):
       with tf.variable_scope(scope or type(self).__name__):  # "BasicRNNCell"
-        output = tf.tanh(linear.linear([inputs, state], self._num_units, True))
+        output = tf.tanh(lfe.linear_enhanced([inputs, state], self._num_units, True, weight_initializer = self._weight_initializerF ))
       return output, output
 
 
 class UnitaryRNNCell(RNNCell):
   """Unitary RNN from Paper: http://arxiv.org/pdf/1511.06464v1.pdf"""
 
-  def __init__(self, num_units, gpu_for_layer = 0):
+  def __init__(self, num_units, gpu_for_layer = 0, weight_initializer = "uniform_unit"):
     self._num_units = num_units
-    self._gpu_for_layer = gpu_for_layer
+    self._gpu_for_layer = gpu_for_layer 
+    self._weight_initializer = weight_initializer
   
 
   @property #why is the input and output size the num_units? 
@@ -261,9 +263,10 @@ class UnitaryRNNCell(RNNCell):
 class JZS1Cell(RNNCell):
   """Mutant 1 of the following paper: http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf"""
 
-  def __init__(self, num_units, gpu_for_layer = 0):
+  def __init__(self, num_units, gpu_for_layer = 0, weight_initializer = "uniform_unit"):
     self._num_units = num_units
-    self._gpu_for_layer = gpu_for_layer
+    self._gpu_for_layer = gpu_for_layer 
+    self._weight_initializer = weight_initializer
 
   @property
   def input_size(self):
@@ -285,14 +288,14 @@ class JZS1Cell(RNNCell):
           # We start with bias of 1.0 to not reset and not update.
           '''equation 1 z = sigm(WxzXt+Bz), x_t is inputs'''
 
-          z = tf.sigmoid(linear.linear([inputs], 
-                            self._num_units, True, 1.0)) 
+          z = tf.sigmoid(lfe.enhanced_linear([inputs], 
+                            self._num_units, True, 1.0, weight_initializer = self._weight_initializer)) 
 
         with tf.variable_scope("Rinput"):
           '''equation 2 r = sigm(WxrXt+Whrht+Br), h_t is the previous state'''
 
-          r = tf.sigmoid((linear.linear([inputs,state],
-                            self._num_units, True, 1.0)))
+          r = tf.sigmoid(lfe.enhanced_linear([inputs,state],
+                            self._num_units, True, 1.0, weight_initializer = self._weight_initializer))
           '''equation 3'''
         with tf.variable_scope("Candidate"):
           component_0 = linear.linear([r*state], 
@@ -310,9 +313,10 @@ class JZS1Cell(RNNCell):
 class JZS2Cell(RNNCell):
   """Mutant 2 of the following paper: http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf"""
 
-  def __init__(self, num_units, gpu_for_layer = 0):
+  def __init__(self, num_units, gpu_for_layer = 0, weight_initializer = "uniform_unit"):
     self._num_units = num_units
-    self._gpu_for_layer = gpu_for_layer
+    self._gpu_for_layer = gpu_for_layer 
+    self._weight_initializer = weight_initializer
 
   @property
   def input_size(self):
@@ -333,13 +337,13 @@ class JZS2Cell(RNNCell):
         with tf.variable_scope("Zinput"):  # Reset gate and update gate.
           '''equation 1'''
 
-          z = tf.sigmoid(linear.linear([inputs, state], 
-                            self._num_units, True, 1.0))
+          z = tf.sigmoid(lfe.enhanced_linear([inputs, state], 
+                            self._num_units, True, 1.0, weight_initializer = self._weight_initializer))
 
           '''equation 2 '''
         with tf.variable_scope("Rinput"):
-          r = tf.sigmoid(inputs+(linear.linear([state],
-                            self._num_units, True, 1.0)))
+          r = tf.sigmoid(inputs+(lfe.enhanced_linear([state],
+                            self._num_units, True, 1.0, weight_initializer = self._weight_initializer)))
           '''equation 3'''
 
         with tf.variable_scope("Candidate"):
@@ -358,9 +362,10 @@ class JZS2Cell(RNNCell):
 class JZS3Cell(RNNCell):
   """Mutant 3 of the following paper: http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf"""
 
-  def __init__(self, num_units, gpu_for_layer = 0):
+  def __init__(self, num_units, gpu_for_layer = 0, weight_initializer = "uniform_unit"):
     self._num_units = num_units
-    self._gpu_for_layer = gpu_for_layer
+    self._gpu_for_layer = gpu_for_layer 
+    self._weight_initializer = weight_initializer
 
   @property
   def input_size(self):
@@ -382,13 +387,13 @@ class JZS3Cell(RNNCell):
           # We start with bias of 1.0 to not reset and not update.
           '''equation 1'''
 
-          z = tf.sigmoid(linear.linear([inputs, tf.tanh(state)], 
-                            self._num_units, True, 1.0))
+          z = tf.sigmoid(lfe.enhanced_linear([inputs, tf.tanh(state)], 
+                            self._num_units, True, 1.0, weight_initializer = self._weight_initializer))
 
           '''equation 2'''
         with tf.variable_scope("Rinput"):
-          r = tf.sigmoid(linear.linear([inputs, state],
-                            self._num_units, True, 1.0))
+          r = tf.sigmoid(lfe.enhanced_linear([inputs, state],
+                            self._num_units, True, 1.0, weight_initializer = self._weight_initializer))
           '''equation 3'''
         with tf.variable_scope("Candidate"):
           component_0 = linear.linear([state*r,inputs],
@@ -407,9 +412,10 @@ class JZS3Cell(RNNCell):
 class GRUCell(RNNCell):
   """Gated Recurrent Unit cell (cf. http://arxiv.org/abs/1406.1078)."""
 
-  def __init__(self, num_units, gpu_for_layer = 0):
+  def __init__(self, num_units, gpu_for_layer = 0, weight_initializer = "uniform_unit"):
     self._num_units = num_units
-    self._gpu_for_layer = gpu_for_layer
+    self._gpu_for_layer = gpu_for_layer 
+    self._weight_initializer = weight_initializer
 
 
   @property
@@ -431,8 +437,8 @@ class GRUCell(RNNCell):
       with tf.variable_scope(scope or type(self).__name__):  # "GRUCell"
         with tf.variable_scope("Gates"):  # Reset gate and update gate.
           # We start with bias of 1.0 to not reset and not udpate.
-          r, u = tf.split(1, 2, linear.linear([inputs, state],
-                                              2 * self._num_units, True, 1.0))
+          r, u = tf.split(1, 2, lfe.enhanced_linear([inputs, state],
+                                              2 * self._num_units, True, 1.0, weight_initializer = self._weight_initializer))
           r, u = tf.sigmoid(r), tf.sigmoid(u)
         with tf.variable_scope("Candidate"): #you need a different one because you're doing a new linear
           #notice they have the activation/non-linear step right here! 
@@ -455,9 +461,10 @@ class BasicLSTMCell(RNNCell):
   the scale of forgetting in the beginning of the training.
   """
 
-  def __init__(self, num_units, gpu_for_layer = 0):
+  def __init__(self, num_units, gpu_for_layer = 0, weight_initializer = "uniform_unit"):
     self._num_units = num_units
-    self._gpu_for_layer = gpu_for_layer
+    self._gpu_for_layer = gpu_for_layer 
+    self._weight_initializer = weight_initializer
 
 
   @property
@@ -478,7 +485,7 @@ class BasicLSTMCell(RNNCell):
       with tf.variable_scope(scope or type(self).__name__):  # "BasicLSTMCell"
         # Parameters of gates are concatenated into one multiply for efficiency.
         c, h = tf.split(1, 2, state)
-        concat = linear.linear([inputs, h], 4 * self._num_units, True)
+        concat = lfe.enhanced_linear([inputs, h], 4 * self._num_units, True, weight_initializer = self._weight_initializer)
 
         # i = input_gate, j = new_input, f = forget_gate, o = output_gate
         i, j, f, o = tf.split(1, 4, concat)
@@ -512,7 +519,7 @@ class LSTMCell(RNNCell):
                use_peepholes=False, cell_clip=None,
                initializer=None, num_proj=None,
                num_unit_shards=1, num_proj_shards=1,
-               gpu_for_layer = 0):
+               gpu_for_layer = 0, weight_initializer = "uniform_unit"):
     """Initialize the parameters for an LSTM cell.
 
     Args:
@@ -545,7 +552,8 @@ class LSTMCell(RNNCell):
     self._num_proj = num_proj
     self._num_unit_shards = num_unit_shards
     self._num_proj_shards = num_proj_shards
-    self._gpu_for_layer = gpu_for_layer
+    self._gpu_for_layer = gpu_for_layer 
+    self._weight_initializer = weight_initializer
 
     if (num_units * 4) % num_unit_shards != 0:
       raise ValueError("num_unit_shards must evently divide 4 * num_units")
@@ -664,7 +672,8 @@ class IdentityRNNCell(RNNCell):
 
   def __init__(self, num_units, gpu_for_layer):
     self._num_units = num_units
-    self._gpu_for_layer = gpu_for_layer
+    self._gpu_for_layer = gpu_for_layer 
+    self._weight_initializer = weight_initializer
 
 
   @property
@@ -796,7 +805,7 @@ class DropoutWrapper(RNNCell):
   """Operator adding dropout to inputs and outputs of the given cell."""
 
   def __init__(self, cell, input_keep_prob=1.0, output_keep_prob=1.0,
-               seed=None, gpu_for_layer = 0):
+               seed=None, gpu_for_layer = 0, weight_initializer = "uniform_unit"):
     """Create a cell with added input and/or output dropout.
 
     Dropout is never used on the state.
@@ -827,7 +836,8 @@ class DropoutWrapper(RNNCell):
     self._input_keep_prob = input_keep_prob
     self._output_keep_prob = output_keep_prob
     self._seed = seed
-    self._gpu_for_layer = gpu_for_layer
+    self._gpu_for_layer = gpu_for_layer 
+    self._weight_initializer = weight_initializer
 
   @property
   def input_size(self):

@@ -12,7 +12,7 @@ import inspect
 
 
 
-from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import linear_enhanced as linear
+from Project_RNN_Enhancement.rnn_enhancement import linear_enhanced as linear
 
 
 # from tensorflow.models.rnn import rnn
@@ -502,26 +502,59 @@ def norm_stabilizer_loss(logits_to_normalize, norm_regularizer_factor = 50, name
     batch_size = tf.shape(logits_to_normalize[0])[0] #you choose the batch size number
 
     squared_sum = tf.zeros((batch_size),tf.float32) #batch size in zeros
-    for q in xrange(len(bucket_states)-1): #this represents the summation part from t to T
+    for q in xrange(len(logits_to_normalize)-1): #this represents the summation part from t to T
       '''one problem you're having right now is that you can't take the sqrt of negative number...you need to figure this out first
 
       You need to take the euclidean norm of the value -- can't find how to do this in tf....
 
       okay so Amn matrix means that the m is going down and n is going horizontal -- so we choose to reduce sum on axis 1 '''
-      difference = tf.sub(lfe.frobenius_norm(bucket_states[q+1], reduction_indices = 1),lfe.frobenius_norm(bucket_states[q], reduction_indices = 1))
+      difference = tf.sub(lfe.frobenius_norm(logits_to_normalize[q+1], reduction_indices = 1),lfe.frobenius_norm(logits_to_normalize[q], reduction_indices = 1))
       '''the difference has the dimensions of [batch_size]'''
 
       squared_sum = tf. add(squared_sum, tf.square(difference))
     #We want to average across batch sizes and divide by T
-    final_reg_loss = norm_regularizer_factor*(tf.add_n(squared_sum)/((len(bucket_states))*(batch_size)))
+    final_reg_loss = norm_regularizer_factor*(tf.add_n(squared_sum)/((len(logits_to_normalize))*(batch_size)))
     return final_reg_loss
 
+def rnn_l2_loss(logits_to_normalize, l2_loss_factor = 10, name = None):
+
+  '''Motivation from this loss function comes from: https://www.reddit.com/r/MachineLearning/comments/3uk2q5/151106464_unitary_evolution_recurrent_neural/
+  Specifically want to thank spurious_recollectio on reddit for discussing this suggestion with me '''
+
+  '''Will add a L2 Loss linearly to the softmax cost function.
+
+    Args:
+  logits_to_normalize:This can be output logits or hidden states. The state of each decoder cell in each time-step. This is a list
+    with length len(decoder_inputs) -- one item for each time-step.
+    Each item is a 2D Tensor of shape [batch_size x cell.state_size] (or it can be [batch_size x output_logits])
+
+  norm_regularizer_factor: The factor required to apply norm stabilization. Keep 
+    in mind that a larger factor will allow you to achieve a lower loss, but it will take
+    many more epochs to do so!
+
+    Returns:
+  final_reg_loss: One Scalar Value representing the loss averaged across the batch'''
+  #normally get_variable sets the variable as trainable by default. 
+
+  '''this is different than unitary because it is an orthongonal matrix approximation -- it will 
+  suffer from timesteps longer than 500 and will take more computation power of O(n^3)'''
+
+  with tf.op_scope(logits_to_normalize, name, "rnn_l2_loss"): #need to have this for tf to work
+    
+    '''somehow we need to get the Weights from the rnns right here....i don't know how! '''
+    Weights_for_l2_loss = tf.get_variable("linear")
+
+    matrix_dot_product= tf.sub(tf.matmul(Weights_for_l2_loss, Weights_for_l2_loss, transpose_b = True), 1)
+
+    final_l2_loss = l2_loss_factor*(tf.add_n(matrix_dot_product)/(batch_size))
+  return final_l2_loss
 
 
 def model_with_buckets(encoder_inputs, decoder_inputs, targets, weights,
                        buckets, num_decoder_symbols, seq2seq,
                        softmax_loss_function=None, name=None, norm_regularize_hidden_states = False,
-                       norm_regularize_logits = False, norm_regularizer_factor = 50):
+                       norm_regularize_logits = False, norm_regularizer_factor = 50,
+                       apply_l2_loss = False, l2_loss_factor = 5):
   """Create a sequence-to-sequence model with support for bucketing.
 
   The seq2seq argument is a function that defines a sequence-to-sequence model,
@@ -585,7 +618,8 @@ def model_with_buckets(encoder_inputs, decoder_inputs, targets, weights,
         final_reg_loss = norm_stabilizer_loss(bucket_states, norm_regularizer_factor = norm_regularizer_factor)
       if norm_regularize_logits:
         final_reg_loss += norm_stabilizer_loss(bucket_outputs, norm_regularizer_factor = norm_regularizer_factor)
-
+      if apply_l2_loss:
+        final_reg_loss += rnn_l2_loss(l2_loss_factor = l2_loss_factor)
       losses.append(final_reg_loss + sequence_loss(
           outputs[-1], bucket_targets, bucket_weights, num_decoder_symbols,
           softmax_loss_function=softmax_loss_function))
