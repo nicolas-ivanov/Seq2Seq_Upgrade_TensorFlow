@@ -1,13 +1,13 @@
-# Seq2Seq_Upgrade_TensorFlow
-Additional Sequence to Sequence Features for TensorFlow
+# Project RNN Enhancement
+Additional RNN and Sequence to Sequence Features for TensorFlow
 
-Hey Guys, TensorFlow is great, but there are some seq2seq features that could be added. The goal is to add them as research in this field unfolds.
+TensorFlow is great, but there are some RNN and Seq2Seq features that could be added. The goal is to add them as research in this field unfolds.
 
 That's why there's this additional python package. This is meant to work in conjunction with TensorFlow. Simply clone this and import as:
 
 ```python
 sys.path.insert(0, os.environ['HOME']) #add the dir that you cloned to
-from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import seq2seq_enhanced, rnn_cell_enhanced
+from Project_RNN_Enhancement.rnn_enhancement import seq2seq_enhanced, rnn_cell_enhanced
 ```
 
 ####Main Features Include:
@@ -18,17 +18,20 @@ from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import seq2seq_enhanced, rnn_cel
 - [Identity RNN's](#identity-rnn) -- [Le's paper](http://arxiv.org/pdf/1504.00941v2.pdf)
 - [Averaging Hidden States During Decoding](#averaging-hidden-states)
 - [Temperature Sampling Within Each Time-Step in Decoding](#temperature-sampling-during-decoding) --  [Explanation Here](https://www.reddit.com/r/MachineLearning/comments/3vzlzz/reproducing_a_neural_conversational_model_in_torch/)
+- Orthgonal, Identity, and Uniform Initialization of Weights
 
 ####Currently Working On:
 
 - Unitary RNN (will take at least 2 weeks) --[Arjovsky's paper](http://arxiv.org/abs/1511.06464v2.pdf)
-- Adversarial Seq2Seq Training (will take at least 4 or 5 weeks)
 - Diversity-Promoting Objective (1 week) -- [Li's paper](http://arxiv.org/pdf/1510.03055v1.pdf)
+- L2 Regularization on Seq2Seq model
+- Skip-connections in between RNN's 
 
 
 ####Features To Come If There's Time:
 
 - Async Loading Data during training 
+- Grid LSTM Decoder -- [Kalchbrenner's Paper]()http://arxiv.org/pdf/1507.01526v2.pdf
 - Decorrelating Representations -- [Cogswell's Paper](http://arxiv.org/pdf/1511.06068v1.pdf)
 - Curriculum Learning 
 - Removing Biases From GRU and LSTM (some reports that it improves performance)
@@ -40,11 +43,11 @@ Lastly, I'm still have much to learn, so I apologize for mistakes in advance. I 
 
 
 
-##Using Seq2Seq Upgrade
+##Using Project RNN Enhancement
 
-Import All RNN Materials from Seq2Seq_Upgrade_TensorFlow_Tensorflow Only!
+Import All RNN Materials from Project_RNN_Enhancement Only!
 
-If you are using Seq2Seq_Upgrade_Tensorflow, please do not import:
+If you are using Project_RNN_Enhancement, please do not import:
 - rnn.py
 - rnn_cell.py
 - seq2seq.py
@@ -55,19 +58,19 @@ from the regular tensorflow. Instead import:
 - rnn_cell_enhanced.py
 - seq2seq_enhanced.py
 
-from Seq2Seq_Upgrade_Tensorflow. Otherwise class inheritance will be thrown off, and you will get an `isinstance` error!
+from Project_RNN_Enhancement. Otherwise class inheritance will be thrown off, and you will get an `isinstance` error!
 
 You can also try to install seq2seq_upgrade as a python package
 
-    sudo pip install git+ssh://github.com/LeavesBreathe/Seq2Seq_Upgrade_TensorFlow.git
+    sudo pip install git+ssh://github.com/LeavesBreathe/Project_RNN_Enhancement.git
 
 or a bit longer version in case the previous one didn't work
 
-    git clone git@github.com:LeavesBreathe/Seq2Seq_Upgrade_TensorFlow.git
-    cd Seq2Seq_Upgrade_TensorFlow
+    git clone git@github.com:LeavesBreathe/Project_RNN_Enhancement.git
+    cd Project_RNN_Enhancement
     sudo python setup.py build & sudo python setup.py install
     
-After that you hopefully be able to simply write `import seq2seq_upgrade`
+After that you hopefully be able to simply write `import Project_RNN_Enhancement`
 
 ------
 Some Features are being tested while others are tested and functional. They are labelled:
@@ -75,7 +78,7 @@ Some Features are being tested while others are tested and functional. They are 
 Status | Meaning
 ------------- | -------------
 Feature Working  | Tested and Should Work as Documented
-Under Testing  | May Not Work or Produce Desired Result
+Under Testing  | May Not Work or Produce Undesired Result
 
 
 ##Different RNN Layers on Multiple GPU's
@@ -87,7 +90,7 @@ To call in GRU for gpu 0, simply call in the class
 
 
 ```python      
-from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import rnn_cell_enhanced
+from Project_RNN_Enhancement.rnn_enhancement import rnn_cell_enhanced
 
 #assuming you're using two gpu's
 first_layer = rnn_cell_enhanced.GRUCell(size, gpu_for_layer = 0)
@@ -100,7 +103,7 @@ cell = rnn_cell.MultiRNNCell(([first_layer]*(num_layers/2)) + ([second_layer]*(n
 You can apply dropout on a specific GPU as well:
 
 ```python
-from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import rnn_cell_enhanced
+from Project_RNN_Enhancement.rnn_enhancement import rnn_cell_enhanced
 
 first_layer = rnn_cell_enhanced.GRUCell(size, gpu_for_layer = 1)
 dropout_first_layer = rnn_cell_enhanced.DropoutWrapper(first_layer, output_keep_prob = 0.80, gpu_for_layer = 1)
@@ -119,7 +122,7 @@ By default this feature is set to off.
 To use:
 
 ```python      
-from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import seq2seq_enhanced
+from Project_RNN_Enhancement.rnn_enhancement import seq2seq_enhanced
 #to regularize both
 seq2seq_enhanced.model_with_buckets(...norm_regularize_hidden_states = True, 
 										norm_regularize_logits = True, norm_regularize_factor = 50)
@@ -143,7 +146,7 @@ These mutants do better in some seq2seq tasks. Memory wise, they approximately t
 To use this simply:
 
 ```python
-from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import rnn_cell_enhanced
+from Project_RNN_Enhancement.rnn_enhancement import rnn_cell_enhanced
 
 first_layer = rnn_cell_enhanced.JZS1Cell(size)
 ```
@@ -162,7 +165,7 @@ Mutants are called in by:
 Allows you to run an IRNN (on specified gpu of your choice). To call in:
 
 ```python
-from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import rnn_cell_enhanced
+from Project_RNN_Enhancement.rnn_enhancement import rnn_cell_enhanced
 
 first_layer = rnn_cell_enhanced.IdentityRNNCell(size, gpu_for_layer = 0)
 ```
@@ -176,7 +179,7 @@ Allows you to set ratio of last hidden state to mean hidden state
 Simply call in:
 
 ```python
-from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import seq2seq_enhanced as sse
+from Project_RNN_Enhancement.rnn_enhancement import seq2seq_enhanced as sse
 
 seq2seq_model = sse.embedding_attention_seq2seq(....,average_states = True, average_hidden_state_influence = 0.5)
 ```
@@ -203,13 +206,32 @@ Go Symbol --> Decoder Timestep 1 --> Dice Roll on Distribution --> One Word Sele
 To use:
 
 ```python
-from Seq2Seq_Upgrade_TensorFlow.seq2seq_upgrade import seq2seq_enhanced as sse
+from Project_RNN_Enhancement.rnn_enhancement import seq2seq_enhanced as sse
 
 seq2seq_model = sse.embedding_attention_seq2seq(....,temperature_decode = True, temperature = 1.0)
 ```
 
-**Note**: Right now, you have to recompile the model each time you want to test a different temperature. Currently,
-I'm working on a way to allow you to test multiple temperatures without re-compiling. 
+**Note**: Right now, you have to recompile the model each time you want to test a different temperature. If there's time,
+I will investigate the ability to implement multiple temperatures without re-compiling. 
 
 
+##Orthgonal, Identity, and Uniform Initialization of Weights
+####Under Testing
 
+Allows one to initialize your weights for each layer. To use:
+
+```python      
+from Project_RNN_Enhancement.rnn_enhancement import rnn_cell_enhanced
+
+#assuming you're using two gpu's
+first_layer = rnn_cell_enhanced.GRUCell(size, gpu_for_layer = 0, weight_initializer = "orthogonal")
+second_layer = rnn_cell_enhanced.JZS1Cell(size, gpu_for_layer = 1, weight_initalizer = "uniform_unit")
+
+cell = rnn_cell.MultiRNNCell(([first_layer]*(num_layers/2)) + ([second_layer]*(num_layers/2)))
+```
+
+Options for Initializing weights `weight_initializer`:
+
+- "uniform_unit": Will uniformly initialize weights accordingly [here](https://www.tensorflow.org/versions/master/api_docs/python/state_ops.html#uniform_unit_scaling_initializer). Use this one if your just beginning.
+- "orthogonal": Will randomly initialize weights orthogonally
+- "identity": Will initialize weights in form of identity matrix

@@ -6,69 +6,62 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import tensorflow.python.platform
-
 from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
+import inspect
 
-from tensorflow.models.rnn import linear
+
+
+from Project_RNN_Enhancement.rnn_enhancement import linear_enhanced as linear
+
+
 # from tensorflow.models.rnn import rnn
 # from tensorflow.models.rnn import rnn_cell
-from seq2seq_upgrade import rnn_enhanced as rnn
-from seq2seq_upgrade import rnn_cell_enhanced as rnn_cell
-from seq2seq_upgrade import linear_functions_enhanced as lfe
-from seq2seq_upgrade import decoding_enhanced
+
+from rnn_enhancement import rnn_enhanced as rnn
+from rnn_enhancement import rnn_cell_enhanced as rnn_cell
+
+#Warning commenting the two lines below out allows it to work!
+from rnn_enhancement import linear_functions_enhanced as lfe
+from rnn_enhancement import decoding_enhanced
 
 
-import cf
+#in the last run you uncommented both of these!
+
+# import cf
 
 
-def extract_argmax_and_embed(prev, _, output_projection, embedding, temperature_decode = False, temperature = 1.0): #placing this function here avoids re-compile time during training!
-        """Loop_function that extracts the symbol from prev and embeds it."""
-        if output_projection is not None:
-          prev = tf.nn.xw_plus_b(prev, output_projection[0], output_projection[1])
+# def extract_argmax_and_embed(prev, _, output_projection, embedding, temperature_decode = False, temperature = 1.0): #placing this function here avoids re-compile time during training!
+#         """Loop_function that extracts the symbol from prev and embeds it."""
+#         if output_projection is not None:
+#           prev = tf.nn.xw_plus_b(prev, output_projection[0], output_projection[1])
 
-        '''output prev of xw_plus_b is [batch_size x out_units]'''
-        #this might be where you gotta do the sampling with temperature during decoding  
-        if temperature_decode:
-          prev_symbol = tf.stop_gradient(decoding_enhanced.batch_sampling_with_temperature(prev, temperature))
+#         '''output prev of xw_plus_b is [batch_size x out_units]'''
+#         #this might be where you gotta do the sampling with temperature during decoding  
+#         if temperature_decode:
+#           prev_symbol = tf.stop_gradient(decoding_enhanced.batch_sample_with_temperature(prev, temperature))
 
-        else:
-          prev_symbol = tf.stop_gradient(tf.argmax(prev, dimension = 1))
+#         else:
+#           prev_symbol = tf.stop_gradient(tf.argmax(prev, dimension = 1))
 
-        #be careful of batch sizing here nick!
-        emb_prev = tf.nn.embedding_lookup(embedding, prev_symbol) #this reconverts it to the embedding I believe
-        return emb_prev
+#         #be careful of batch sizing here nick!
+#         emb_prev = tf.nn.embedding_lookup(embedding, prev_symbol) #this reconverts it to the embedding I believe
+#         return emb_prev
 
 def average_hidden_states(decoder_states, average_hidden_state_influence = 0.5, name = None):
+  print('WARNING YOU ARE USING HIDDEN STATES LINE 45ISH========================================@@@@@@@@@@@@@@@@')
   with tf.op_scope(decoder_states + average_hidden_state_influence, name, "average_hidden_states"):
     mean_decoder_states = tf.reduce_mean(decoder_states, 0) #nick double check the axis is right!
     final_decoder_state = tf.add((1 - average_hidden_state_influence) * decoder_states[-1], average_hidden_state_influence*mean_decoder_states)
   return final_decoder_state
 
 
-def attention(query, num_heads, attention_vec_size, v, hidden_features, attn_length, hidden, attn_size): #this is part of the attention_decoder. It is placed outside to avoid re-compile time. 
-  """Put attention masks on hidden using hidden_features and query."""
-  ds = []  # Results of attention reads will be stored here.
-  for a in xrange(num_heads):
-    with tf.variable_scope("Attention_%d" % a):
-      y = linear.linear(query, attention_vec_size, True)
-      y = tf.reshape(y, [-1, 1, 1, attention_vec_size])
-      # Attention mask is a softmax of v^T * tanh(...).
-      s = tf.reduce_sum(v[a] * tf.tanh(hidden_features[a] + y), [2, 3])
-      a = tf.nn.softmax(s)
-      # Now calculate the attention-weighted vector d.
-      d = tf.reduce_sum(tf.reshape(a, [-1, attn_length, 1, 1]) * hidden,
-                        [1, 2])
-      ds.append(tf.reshape(d, [-1, attn_size]))
-  return ds
 
 
 def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
                       output_size=None, num_heads=1, loop_function=None,
                       dtype=tf.float32, scope=None, average_states = False, average_hidden_state_influence = 0.5,
-                      temperature_decode = False, temperature = 1.0, output_projection = None,
-                      embedding = None):
+                      temperature_decode = False, temperature = 1.0):
   """RNN decoder with attention for the sequence-to-sequence model.
 
   Args:
@@ -95,7 +88,7 @@ def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
       Output i is computed from input i (which is either i-th decoder_inputs or
       loop_function(output {i-1}, i)) as follows. First, we run the cell
       on a combination of the input and previous attention masks:
-        cell_output, new_state = cell(linear(input, prev_attn), prev_state).
+        cell_output, new_state = cell(linear(input, prev_attn), prev_state)
       Then, we calculate new attention masks:
         new_attn = softmax(V^T * tanh(W * attention_states + U * new_state))
       and then we calculate the output:
@@ -135,6 +128,22 @@ def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
 
     states = [initial_state]
 
+    def attention(query): #this is part of the attention_decoder. It is placed outside to avoid re-compile time. 
+      """Put attention masks on hidden using hidden_features and query."""
+      ds = []  # Results of attention reads will be stored here.
+      for a in xrange(num_heads):
+        with tf.variable_scope("Attention_%d" % a):
+          y = linear.linear(query, attention_vec_size, True)
+          y = tf.reshape(y, [-1, 1, 1, attention_vec_size])
+          # Attention mask is a softmax of v^T * tanh(...).
+          s = tf.reduce_sum(v[a] * tf.tanh(hidden_features[a] + y), [2, 3])
+          a = tf.nn.softmax(s)
+          # Now calculate the attention-weighted vector d.
+          d = tf.reduce_sum(tf.reshape(a, [-1, attn_length, 1, 1]) * hidden,
+                            [1, 2])
+          ds.append(tf.reshape(d, [-1, attn_size]))
+      return ds
+
     outputs = []
     prev = None
     batch_attn_size = tf.pack([batch_size, attn_size])
@@ -151,7 +160,7 @@ def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
       # If loop_function is set, we use it instead of decoder_inputs.
       if loop_function is not None and prev is not None:
         with tf.variable_scope("loop_function", reuse=True):
-          inp = tf.stop_gradient(loop_function(prev, i, output_projection, embedding, temperature_decode = temperature_decode,
+          inp = tf.stop_gradient(loop_function(prev, i, temperature_decode = temperature_decode,
                       temperature = temperature)) #basically, stop_gradient doesn't allow inputs to be taken into account
 
       #this will make an input that is combined with attention
@@ -164,14 +173,14 @@ def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
       hidden_state_input = states[-1]
       if average_states:
         '''implement averaging of states'''
+        print('WARNING YOU HAVE OPTED TO USE THE AVERAGING OF STATES!!!!!!!!!!!!!!!!!!!!!@@@@@@@@@@@')
         hidden_state_input = average_hidden_states(states, average_hidden_state_influence) 
 
       # Run the RNN.
       cell_output, new_state = cell(x, hidden_state_input) #nick, changed this to your hidden state input
       states.append(new_state)
       # Run the attention mechanism.
-      attns = attention(new_state, num_heads = num_heads, attention_vec_size = attention_vec_size,
-        v = v, hidden_features = hidden_features, attn_length = attn_length, hidden = hidden, attn_size = attn_size)
+      attns = attention(new_state)
       with tf.variable_scope("AttnOutputProjection"):
         output = linear.linear([cell_output] + attns, output_size, True)
       if loop_function is not None:
@@ -236,6 +245,20 @@ def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,
       embedding = tf.get_variable("embedding", [num_symbols, cell.input_size])
 
 
+    def extract_argmax_and_embed(prev, _, temperature_decode = False, temperature = 1.0): #placing this function here avoids re-compile time during training!
+        """Loop_function that extracts the symbol from prev and embeds it."""
+        if output_projection is not None:
+          prev = tf.nn.xw_plus_b(prev, output_projection[0], output_projection[1])
+        '''output prev of xw_plus_b is [batch_size x out_units]'''
+        #this might be where you gotta do the sampling with temperature during decoding  
+        if temperature_decode:
+          print('YOU ARE USING TEMPERATURE DECODING WARNING ---@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@2')
+          prev_symbol = tf.stop_gradient(decoding_enhanced.batch_sample_with_temperature(prev, temperature))
+        else:
+          prev_symbol = tf.stop_gradient(tf.argmax(prev, 1))
+        #be careful of batch sizing here nick!
+        emb_prev = tf.nn.embedding_lookup(embedding, prev_symbol) #this reconverts it to the embedding I believe
+        return emb_prev
 
     loop_function = None
     if feed_previous:
@@ -249,7 +272,7 @@ def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,
       emb_inp, initial_state, attention_states, cell, output_size=output_size,
       num_heads=num_heads, loop_function=loop_function, average_states = average_states, 
       average_hidden_state_influence = average_hidden_state_influence, temperature_decode = temperature_decode,
-      temperature = temperature, output_projection = output_projection, embedding = embedding)
+      temperature = temperature)
 
 
 def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
@@ -456,6 +479,9 @@ def sequence_loss(logits, targets, weights, num_decoder_symbols,
 
 
 def norm_stabilizer_loss(logits_to_normalize, norm_regularizer_factor = 50, name = None):
+
+
+  print('WARNING ------YOU HAVE OPTED TO USE NORM STABILIZER LOSS -------------------------------------------===================@@@@@@@@@@@@@@@@@@@')
   '''Will add a Norm Stabilizer Loss 
 
     Args:
@@ -474,26 +500,59 @@ def norm_stabilizer_loss(logits_to_normalize, norm_regularizer_factor = 50, name
     batch_size = tf.shape(logits_to_normalize[0])[0] #you choose the batch size number
 
     squared_sum = tf.zeros((batch_size),tf.float32) #batch size in zeros
-    for q in xrange(len(bucket_states)-1): #this represents the summation part from t to T
+    for q in xrange(len(logits_to_normalize)-1): #this represents the summation part from t to T
       '''one problem you're having right now is that you can't take the sqrt of negative number...you need to figure this out first
 
       You need to take the euclidean norm of the value -- can't find how to do this in tf....
 
       okay so Amn matrix means that the m is going down and n is going horizontal -- so we choose to reduce sum on axis 1 '''
-      difference = tf.sub(lfe.frobenius_norm(bucket_states[q+1], reduction_indicies = 1),lfe.frobenius_norm(bucket_states[q], reduction_indicies = 1))
+      difference = tf.sub(lfe.frobenius_norm(logits_to_normalize[q+1], reduction_indices = 1),lfe.frobenius_norm(logits_to_normalize[q], reduction_indices = 1))
       '''the difference has the dimensions of [batch_size]'''
 
       squared_sum = tf. add(squared_sum, tf.square(difference))
     #We want to average across batch sizes and divide by T
-    final_reg_loss = norm_regularizer_factor*(tf.add_n(squared_sum)/((len(bucket_states))*(batch_size)))
+    final_reg_loss = norm_regularizer_factor*(tf.add_n(squared_sum)/((len(logits_to_normalize))*(batch_size)))
     return final_reg_loss
 
+def rnn_l2_loss(logits_to_normalize, l2_loss_factor = 10, name = None):
+
+  '''Motivation from this loss function comes from: https://www.reddit.com/r/MachineLearning/comments/3uk2q5/151106464_unitary_evolution_recurrent_neural/
+  Specifically want to thank spurious_recollectio on reddit for discussing this suggestion with me '''
+
+  '''Will add a L2 Loss linearly to the softmax cost function.
+
+    Args:
+  logits_to_normalize:This can be output logits or hidden states. The state of each decoder cell in each time-step. This is a list
+    with length len(decoder_inputs) -- one item for each time-step.
+    Each item is a 2D Tensor of shape [batch_size x cell.state_size] (or it can be [batch_size x output_logits])
+
+  norm_regularizer_factor: The factor required to apply norm stabilization. Keep 
+    in mind that a larger factor will allow you to achieve a lower loss, but it will take
+    many more epochs to do so!
+
+    Returns:
+  final_reg_loss: One Scalar Value representing the loss averaged across the batch'''
+  #normally get_variable sets the variable as trainable by default. 
+
+  '''this is different than unitary because it is an orthongonal matrix approximation -- it will 
+  suffer from timesteps longer than 500 and will take more computation power of O(n^3)'''
+
+  with tf.op_scope(logits_to_normalize, name, "rnn_l2_loss"): #need to have this for tf to work
+    
+    '''somehow we need to get the Weights from the rnns right here....i don't know how! '''
+    Weights_for_l2_loss = tf.get_variable("linear")
+
+    matrix_dot_product= tf.sub(tf.matmul(Weights_for_l2_loss, Weights_for_l2_loss, transpose_b = True), 1)
+
+    final_l2_loss = l2_loss_factor*(tf.add_n(matrix_dot_product)/(batch_size))
+  return final_l2_loss
 
 
 def model_with_buckets(encoder_inputs, decoder_inputs, targets, weights,
                        buckets, num_decoder_symbols, seq2seq,
                        softmax_loss_function=None, name=None, norm_regularize_hidden_states = False,
-                       norm_regularize_logits = False, norm_regularizer_factor = 50):
+                       norm_regularize_logits = False, norm_regularizer_factor = 50,
+                       apply_l2_loss = False, l2_loss_factor = 5):
   """Create a sequence-to-sequence model with support for bucketing.
 
   The seq2seq argument is a function that defines a sequence-to-sequence model,
@@ -557,7 +616,8 @@ def model_with_buckets(encoder_inputs, decoder_inputs, targets, weights,
         final_reg_loss = norm_stabilizer_loss(bucket_states, norm_regularizer_factor = norm_regularizer_factor)
       if norm_regularize_logits:
         final_reg_loss += norm_stabilizer_loss(bucket_outputs, norm_regularizer_factor = norm_regularizer_factor)
-
+      if apply_l2_loss:
+        final_reg_loss += rnn_l2_loss(l2_loss_factor = l2_loss_factor)
       losses.append(final_reg_loss + sequence_loss(
           outputs[-1], bucket_targets, bucket_weights, num_decoder_symbols,
           softmax_loss_function=softmax_loss_function))

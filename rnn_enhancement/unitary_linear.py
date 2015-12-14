@@ -7,9 +7,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import tensorflow.python.platform
-
 import tensorflow as tf
+
+print('Unitary Linear has been imported')
 
 
 #ORIGINAL FUNCTION
@@ -146,14 +146,7 @@ def vec_permutation_tf(input, n_hidden, index_permute): #I don't get this...why 
 
 
 
-
-
-
-
-
-
-
-def linear(args, output_size, bias, bias_start=0.0, scope=None):
+def unitary_linear(args, output_size, bias, bias_start=0.0, scope=None):
   """Linear map: sum_i(args[i] * W[i]), where W[i] is a variable.
 
   Args:
@@ -186,15 +179,15 @@ def linear(args, output_size, bias, bias_start=0.0, scope=None):
       total_arg_size += shape[1]
 
   # Now the computation.
-  with tf.variable_scope(scope or "Linear"):
-    matrix = tf.get_variable("Matrix", [total_arg_size, output_size])
+  with tf.variable_scope(scope or "Unitary_Linear"):
+    matrix = tf.get_variable("Unitary_Matrix", [total_arg_size, output_size])
     if len(args) == 1:
       res = tf.matmul(args[0], matrix)
     else:
       res = tf.matmul(tf.concat(1, args), matrix)
     if not bias:
       return res
-    bias_term = tf.get_variable("Bias", [output_size],
+    bias_term = tf.get_variable("Unitary_Bias", [output_size],
                                 initializer=tf.constant_initializer(bias_start))
   return res + bias_term
 
