@@ -283,7 +283,7 @@ def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
                                 feed_previous=False, dtype=tf.float32,
                                 scope=None, average_states = False,
                                 average_hidden_state_influence = 0.5, temperature_decode = False,
-                                temperature = 1.0, rnn_weight_var_scope = None):
+                                temperature = 1.0):
   """Embedding sequence-to-sequence model with attention.
 
   This model first embeds encoder_inputs by a newly created embedding (of shape
@@ -381,7 +381,7 @@ def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
                                       lambda: states1, lambda: states2)
 
 
-      return outputs, states, rnn_weight_var_scope
+      return outputs, states
 
 
 def sequence_loss_by_example(logits, targets, weights, num_decoder_symbols,
@@ -604,7 +604,7 @@ def model_with_buckets(encoder_inputs, decoder_inputs, targets, weights,
                                for i in xrange(buckets[j][0])]
       bucket_decoder_inputs = [decoder_inputs[i]
                                for i in xrange(buckets[j][1])]
-      bucket_outputs, bucket_states, rnn_weight_var_scope = seq2seq(bucket_encoder_inputs,
+      bucket_outputs, bucket_states= seq2seq(bucket_encoder_inputs,
                                   bucket_decoder_inputs) #nick pay attention here -- you added bucket_states
       outputs.append(bucket_outputs)
 
@@ -619,7 +619,7 @@ def model_with_buckets(encoder_inputs, decoder_inputs, targets, weights,
       if norm_regularize_logits:
         final_reg_loss += norm_stabilizer_loss(bucket_outputs, norm_regularizer_factor = norm_regularizer_factor)
       if apply_l2_loss:
-        final_reg_loss += rnn_l2_loss(rnn_weight_var_scope = rnn_weight_var_scope, l2_loss_factor = l2_loss_factor)
+        final_reg_loss += rnn_l2_loss(l2_loss_factor = l2_loss_factor)
       losses.append(final_reg_loss + sequence_loss(
           outputs[-1], bucket_targets, bucket_weights, num_decoder_symbols,
           softmax_loss_function=softmax_loss_function))
