@@ -11,9 +11,7 @@ import tensorflow as tf
 import inspect
 
 
-
-from Project_RNN_Enhancement.rnn_enhancement import linear_enhanced as linear
-
+from rnn_enhancement import linear_enhanced as linear
 
 # from tensorflow.models.rnn import rnn
 # from tensorflow.models.rnn import rnn_cell
@@ -22,8 +20,8 @@ from rnn_enhancement import rnn_enhanced as rnn
 from rnn_enhancement import rnn_cell_enhanced as rnn_cell
 
 #Warning commenting the two lines below out allows it to work!
-from rnn_enhancement import linear_functions_enhanced as lfe
-from rnn_enhancement import decoding_enhanced
+# from rnn_enhancement import linear_functions_enhanced as lfe
+# from rnn_enhancement import decoding_enhanced
 
 
 #in the last run you uncommented both of these!

@@ -51,6 +51,7 @@ def sample_with_temperature(a, temperature=1.0):
 
 	return final_number
 
+
 def batch_sample_with_temperature(a, temperature=1.0):
 	'''this function is like sample_with_temperature except it can handle batch input a of [batch_size x logits] 
 		this function takes logits input, and produces a specific number from the array. This is all done on the gpu
