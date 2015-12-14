@@ -30,11 +30,11 @@ def identity_initializer():
             raise
     return _initializer
 
-def orthogonal_initializer():
+def orthogonal_initializer(scale = 1.1):
     ''' From Lasagne and Keras. Reference: Saxe et al., http://arxiv.org/abs/1312.6120
     '''
     print('Warning -- You have opted to use the orthogonal_initializer!!!!!!!!!!!!!!!!@@@@@@')
-    def _initializer(shape, scale = 1.1, dtype=tf.float32):
+    def _initializer(shape, dtype=tf.float32):
       flat_shape = (shape[0], np.prod(shape[1:]))
       a = np.random.normal(0.0, 1.0, flat_shape)
       u, _, v = np.linalg.svd(a, full_matrices=False)
@@ -45,7 +45,7 @@ def orthogonal_initializer():
       return tf.constant(scale * q[:shape[0], :shape[1]])
     return _initializer
 
-def enhanced_linear(args, output_size, bias, bias_start=0.0, weight_initializer = "uniform_unit", scope=None):
+def enhanced_linear(args, output_size, bias, bias_start=0.0, weight_initializer = "uniform_unit", orthogonal_scale = 1.1, scope=None):
   """Linear map: sum_i(args[i] * W[i]), where W[i] is a variable.
 
   Args:
@@ -91,7 +91,7 @@ def enhanced_linear(args, output_size, bias, bias_start=0.0, weight_initializer 
     elif weight_initializer == "identity":
       matrix = tf.get_variable("Enhanced_Matrix", [total_arg_size, output_size], initializer = identity_initializer()) #fix this when you get a chance for identity?
     elif weight_initializer == "orthogonal":
-      matrix = tf.get_variable("Orthogonal_Matrix", [total_arg_size, output_size], initializer = identity_initializer()) #fix this when you get a chance for identity?
+      matrix = tf.get_variable("Orthogonal_Matrix", [total_arg_size, output_size], initializer = orthogonal_initializer(scale = orthogonal_scale)) #fix this when you get a chance for identity?
     else:
       raise ValueError("weight_initializer not set correctly: %s Initializers: uniform_unit, identity, orthogonal" % weight_initializer)
 

@@ -17,7 +17,9 @@ from Project_RNN_Enhancement.rnn_enhancement import linear_enhanced as linear
 from Project_RNN_Enhancement.rnn_enhancement import linear_functions_enhanced as lfe
 from Project_RNN_Enhancement.rnn_enhancement import unitary_linear
 
-
+with tf.variable_scope("Skip_Connections"):
+  timestep_counter = tf.variable(1, trainable = False, name = "timestep_counter")
+  previous_inputs = tf.variable(0, trainable = False, name = "previous_inputs")
 
 
 class RNNCell(object):
@@ -412,10 +414,13 @@ class JZS3Cell(RNNCell):
 class GRUCell(RNNCell):
   """Gated Recurrent Unit cell (cf. http://arxiv.org/abs/1406.1078)."""
 
-  def __init__(self, num_units, gpu_for_layer = 0, weight_initializer = "uniform_unit"):
+  def __init__(self, num_units, gpu_for_layer = 0, weight_initializer = "uniform_unit",
+    skip_connections = False, skip_neuron_number = 4):
     self._num_units = num_units
     self._gpu_for_layer = gpu_for_layer 
     self._weight_initializer = weight_initializer
+    self._skip_connections = skip_connections
+    self._skip_neuron_number = skip_neuron_number
 
 
   @property
@@ -433,20 +438,48 @@ class GRUCell(RNNCell):
   def __call__(self, inputs, state,scope=None):
     with tf.device("/gpu:"+str(self._gpu_for_layer)):
 
-      """Gated recurrent unit (GRU) with nunits cells."""
-      with tf.variable_scope(scope or type(self).__name__):  # "GRUCell"
-        with tf.variable_scope("Gates"):  # Reset gate and update gate.
-          # We start with bias of 1.0 to not reset and not udpate.
-          r, u = tf.split(1, 2, lfe.enhanced_linear([inputs, state],
-                                              2 * self._num_units, True, 1.0, weight_initializer = self._weight_initializer))
-          r, u = tf.sigmoid(r), tf.sigmoid(u)
-        with tf.variable_scope("Candidate"): #you need a different one because you're doing a new linear
-          #notice they have the activation/non-linear step right here! 
-          c = tf.tanh(linear.linear([inputs, r * state], self._num_units, True))
-        new_h = u * state + (1 - u) * c
-      return new_h, new_h
+      '''Modifying skip connections part -- Added Additional Input'''
+      if self._skip_connections:
+        with tf.variable_scope("Skip_Connections"):
+          timestep_counter.assign(timestep_counter+1) #add one to timestep counter
 
-      '''nick, notice that for the gru, the output and the hidden state are literally the same thing'''
+          '''linearly add the inputs for the skip connections....maybe'''
+          inputs = tf.add(inputs, previous_inputs)
+
+          
+          with tf.variable_scope(scope or type(self).__name__):  # "GRUCell"
+            with tf.variable_scope("Gates"):  # Reset gate and update gate.
+              # We start with bias of 1.0 to not reset and not udpate.
+              r, u = tf.split(1, 2, lfe.enhanced_linear([inputs, state],
+                                                  2 * self._num_units, True, 1.0, weight_initializer = self._weight_initializer))
+              r, u = tf.sigmoid(r), tf.sigmoid(u)
+            with tf.variable_scope("Candidate"): #you need a different one because you're doing a new linear
+              #notice they have the activation/non-linear step right here! 
+              c = tf.tanh(linear.linear([inputs, r * state], self._num_units, True))
+            new_h = u * state + (1 - u) * c
+
+          '''need to update inputs if they are available'''  
+          if timestep_counter/skip_neuron_number == 0:
+            previous_inputs.assign(inputs)
+
+          return new_h, new_h
+
+          
+
+      else:
+        """Normal Gated recurrent unit (GRU) with nunits cells."""
+        with tf.variable_scope(scope or type(self).__name__):  # "GRUCell"
+          with tf.variable_scope("Gates"):  # Reset gate and update gate.
+            # We start with bias of 1.0 to not reset and not udpate.
+            r, u = tf.split(1, 2, lfe.enhanced_linear([inputs, state],
+                                                2 * self._num_units, True, 1.0, weight_initializer = self._weight_initializer))
+            r, u = tf.sigmoid(r), tf.sigmoid(u)
+          with tf.variable_scope("Candidate"): #you need a different one because you're doing a new linear
+            #notice they have the activation/non-linear step right here! 
+            c = tf.tanh(linear.linear([inputs, r * state], self._num_units, True))
+          new_h = u * state + (1 - u) * c
+        return new_h, new_h
+
 
 
 class BasicLSTMCell(RNNCell):

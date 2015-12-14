@@ -7,18 +7,23 @@ That's why there's this additional python package. This is meant to work in conj
 
 ```python
 sys.path.insert(0, os.environ['HOME']) #add the dir that you cloned to
-from Project_RNN_Enhancement.rnn_enhancement import seq2seq_enhanced, rnn_cell_enhanced
+from Project_RNN_Enhancement.rnn_enhancement import seq2seq_enhanced, rnn_cell_enhanced, decoding_enhanced
 ```
 
-####Main Features Include:
+##RNN Features
 
 - [Different RNN Layers on Multiple GPU's](#different-rnn-layers-on-multiple-gpus)
-- [Regularizing RNNs by Stabilizing Activations](#norm-regularize-hidden-states-and-outputs) -- [Krueger's paper](http://arxiv.org/pdf/1511.08400.pdf)
 - [GRU Mutants](#gru-mutants) -- [Jozefowicz's paper](http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf)
+- Skip Connection Inputs In Between Unrolled Neurons
 - [Identity RNN's](#identity-rnn) -- [Le's paper](http://arxiv.org/pdf/1504.00941v2.pdf)
+- [Orthogonal, Identity, and Uniform Initialization of Weights](#orthogonal-identity-and-uniform-initialization-of-weights) -- [Saxe's Paper](http://arxiv.org/pdf/1312.6120v3.pdf)
+
+##Seq2Seq Features
+
+- [Regularizing RNNs by Stabilizing Activations](#norm-regularize-hidden-states-and-outputs) -- [Krueger's paper](http://arxiv.org/pdf/1511.08400.pdf)
 - [Averaging Hidden States During Decoding](#averaging-hidden-states)
 - [Temperature Sampling Within Each Time-Step in Decoding](#temperature-sampling-during-decoding) --  [Explanation Here](https://www.reddit.com/r/MachineLearning/comments/3vzlzz/reproducing_a_neural_conversational_model_in_torch/)
-- Orthgonal, Identity, and Uniform Initialization of Weights
+
 
 ####Currently Working On:
 
@@ -170,6 +175,36 @@ from Project_RNN_Enhancement.rnn_enhancement import rnn_cell_enhanced
 first_layer = rnn_cell_enhanced.IdentityRNNCell(size, gpu_for_layer = 0)
 ```
 
+##Skip Connections In Between RNN Cells
+####Under Testing
+
+Allows you to add skip-connections in between your unrolled RNN cells. These can be powerful because past inputs can be applied to RNN cells many timesteps ahead.  
+
+To use:
+
+```python
+from Project_RNN_Enhancement.rnn_enhancement import rnn_cell_enhanced
+
+first_layer = rnn_cell_enhanced.GRUCell(size, gpu_for_layer = 0, skip_connections = True, skip_neuron_number = 4)
+```
+where `skip_neuron_number` will be the number of neurons will recieve past input. 
+
+#####Example:
+
+A `skip_neuron_number` of 4 means:
+
+t1 input is inputted into neuron_t1, neuron_t2, neuron_t3, neuron_t4 
+
+Then
+
+t4 input is inputted into neuron_t4, neuron_t5, neuron_t6, neuron_t7 
+
+Note that neurons_t2, neuron_t3, and neuron_t4 will recieve their regular inputs as well.
+
+Warning: Skip connections will add to training time and require more memory. Though it should not be a significant amount.
+
+**Note:** Because this is under testing, It only will work (if it does work) for the GRUCell. There are many, many types of skip connections to do, so I'll be experimenting with them. This section will probably be updated
+
 
 ##Averaging Hidden States
 ####Under Testing
@@ -211,11 +246,10 @@ from Project_RNN_Enhancement.rnn_enhancement import seq2seq_enhanced as sse
 seq2seq_model = sse.embedding_attention_seq2seq(....,temperature_decode = True, temperature = 1.0)
 ```
 
-**Note**: Right now, you have to recompile the model each time you want to test a different temperature. If there's time,
-I will investigate the ability to implement multiple temperatures without re-compiling. 
+**Note**: Right now, you have to recompile the model each time you want to test a different temperature. If there's time, I will investigate the ability to implement multiple temperatures without re-compiling. 
 
 
-##Orthgonal, Identity, and Uniform Initialization of Weights
+##Orthogonal, Identity, and Uniform Initialization of Weights
 ####Under Testing
 
 Allows one to initialize your weights for each layer. To use:
@@ -230,8 +264,8 @@ second_layer = rnn_cell_enhanced.JZS1Cell(size, gpu_for_layer = 1, weight_inital
 cell = rnn_cell.MultiRNNCell(([first_layer]*(num_layers/2)) + ([second_layer]*(num_layers/2)))
 ```
 
-Options for Initializing weights `weight_initializer`:
+Optional Arguments for Initializing weights `weight_initializer`:
 
-- "uniform_unit": Will uniformly initialize weights accordingly [here](https://www.tensorflow.org/versions/master/api_docs/python/state_ops.html#uniform_unit_scaling_initializer). Use this one if your just beginning.
-- "orthogonal": Will randomly initialize weights orthogonally
-- "identity": Will initialize weights in form of identity matrix
+- `"uniform_unit"`: Will uniformly initialize weights accordingly [here](https://www.tensorflow.org/versions/master/api_docs/python/state_ops.html#uniform_unit_scaling_initializer). Use this one if your just beginning.
+- `"orthogonal"`: Will randomly initialize weights orthogonally
+- `"identity"`: Will initialize weights in form of identity matrix
