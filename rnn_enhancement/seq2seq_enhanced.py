@@ -33,23 +33,6 @@ from Project_RNN_Enhancement.rnn_enhancement import decoding_enhanced
 import cf
 
 
-# def extract_argmax_and_embed(prev, _, output_projection, embedding, temperature_decode = False, temperature = 1.0): #placing this function here avoids re-compile time during training!
-#         """Loop_function that extracts the symbol from prev and embeds it."""
-#         if output_projection is not None:
-#           prev = tf.nn.xw_plus_b(prev, output_projection[0], output_projection[1])
-
-#         '''output prev of xw_plus_b is [batch_size x out_units]'''
-#         #this might be where you gotta do the sampling with temperature during decoding  
-#         if temperature_decode:
-#           prev_symbol = tf.stop_gradient(decoding_enhanced.batch_sample_with_temperature(prev, temperature))
-
-#         else:
-#           prev_symbol = tf.stop_gradient(tf.argmax(prev, dimension = 1))
-
-#         #be careful of batch sizing here nick!
-#         emb_prev = tf.nn.embedding_lookup(embedding, prev_symbol) #this reconverts it to the embedding I believe
-#         return emb_prev
-
 def average_hidden_states(decoder_states, average_hidden_state_influence = 0.5, name = None):
   print('WARNING YOU ARE USING HIDDEN STATES LINE 45ISH========================================@@@@@@@@@@@@@@@@')
   with tf.op_scope(decoder_states + average_hidden_state_influence, name, "average_hidden_states"):
@@ -247,14 +230,18 @@ def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,
       embedding = tf.get_variable("embedding", [num_symbols, cell.input_size])
 
 
-    def extract_argmax_and_embed(prev, _, temperature_decode = False, temperature = 1.0): #placing this function here avoids re-compile time during training!
+
+
+    loop_function = None
+    if feed_previous:
+      def extract_argmax_and_embed(prev, _, temperature_decode = False, temperature = 1.0): #placing this function here avoids re-compile time during training!
         """Loop_function that extracts the symbol from prev and embeds it."""
         if output_projection is not None:
           prev = tf.nn.xw_plus_b(prev, output_projection[0], output_projection[1])
         '''output prev of xw_plus_b is [batch_size x out_units]'''
         #this might be where you gotta do the sampling with temperature during decoding  
         if temperature_decode:
-          print('YOU ARE USING TEMPERATURE DECODING WARNING ---@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@2')
+          print('YOU ARE USING TEMPERATURE DECODING WARNING ---')
           prev_symbol = tf.stop_gradient(decoding_enhanced.batch_sample_with_temperature(prev, temperature))
         else:
           prev_symbol = tf.stop_gradient(tf.argmax(prev, 1))
@@ -262,8 +249,6 @@ def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,
         emb_prev = tf.nn.embedding_lookup(embedding, prev_symbol) #this reconverts it to the embedding I believe
         return emb_prev
 
-    loop_function = None
-    if feed_previous:
       loop_function = extract_argmax_and_embed #oh wow they are literally passing a function right here....
 
     emb_inp = [tf.nn.embedding_lookup(embedding, i) for i in decoder_inputs]

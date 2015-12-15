@@ -16,7 +16,7 @@ from Project_RNN_Enhancement.rnn_enhancement import seq2seq_enhanced, rnn_cell_e
 - [GRU Mutants](#gru-mutants) -- [Jozefowicz's paper](http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf)
 - Skip Connection Inputs In Between Unrolled Neurons
 - [Identity RNN's](#identity-rnn) -- [Le's paper](http://arxiv.org/pdf/1504.00941v2.pdf)
-- [Orthogonal, Identity, and Uniform Initialization of Weights](#orthogonal-identity-and-uniform-initialization-of-weights) -- [Saxe's Paper](http://arxiv.org/pdf/1312.6120v3.pdf)
+- [Orthogonal and Uniform Initialization of Weights](#orthogonal-identity-and-uniform-initialization-of-weights) -- [Saxe's Paper](http://arxiv.org/pdf/1312.6120v3.pdf)
 
 ##Seq2Seq Features
 
@@ -30,7 +30,7 @@ from Project_RNN_Enhancement.rnn_enhancement import seq2seq_enhanced, rnn_cell_e
 - Unitary RNN (will take at least 2 weeks) --[Arjovsky's paper](http://arxiv.org/abs/1511.06464v2.pdf)
 - Diversity-Promoting Objective (1 week) -- [Li's paper](http://arxiv.org/pdf/1510.03055v1.pdf)
 - L2 Regularization on Seq2Seq model
-- Skip-connections in between RNN's 
+- Interconnections between RNN Layers
 
 
 ####Features To Come If There's Time:
@@ -249,7 +249,7 @@ seq2seq_model = sse.embedding_attention_seq2seq(....,temperature_decode = True, 
 **Note**: Right now, you have to recompile the model each time you want to test a different temperature. If there's time, I will investigate the ability to implement multiple temperatures without re-compiling. 
 
 
-##Orthogonal, Identity, and Uniform Initialization of Weights
+##Orthogonal and Uniform Initialization of Weights
 ####Under Testing
 
 Allows one to initialize your weights for each layer. To use:
@@ -258,7 +258,8 @@ Allows one to initialize your weights for each layer. To use:
 from Project_RNN_Enhancement.rnn_enhancement import rnn_cell_enhanced
 
 #assuming you're using two gpu's
-first_layer = rnn_cell_enhanced.GRUCell(size, gpu_for_layer = 0, weight_initializer = "orthogonal")
+first_layer = rnn_cell_enhanced.GRUCell(size, gpu_for_layer = 0, 
+			weight_initializer = "orthogonal", orthogonal_scale_factor = 1.1)
 second_layer = rnn_cell_enhanced.JZS1Cell(size, gpu_for_layer = 1, weight_initalizer = "uniform_unit")
 
 cell = rnn_cell.MultiRNNCell(([first_layer]*(num_layers/2)) + ([second_layer]*(num_layers/2)))
@@ -268,4 +269,7 @@ Optional Arguments for Initializing weights `weight_initializer`:
 
 - `"uniform_unit"`: Will uniformly initialize weights accordingly [here](https://www.tensorflow.org/versions/master/api_docs/python/state_ops.html#uniform_unit_scaling_initializer). Use this one if your just beginning.
 - `"orthogonal"`: Will randomly initialize weights orthogonally
-- `"identity"`: Will initialize weights in form of identity matrix
+
+	For orthogonal, you can optionally enter a second argument called "orthogonal_scale_factor" if you would like to adjust how much each initial weight is multipled by. You don't want a scale factor too large, otherwise it will saturate your hidden states! You also don't want a scale factor too small, as your weights won't affect your hidden states as much as they should.
+
+	If you're just beginning, leave this option as default. 

@@ -143,9 +143,6 @@ def vec_permutation_tf(input, n_hidden, index_permute): #I don't get this...why 
 
 
 
-
-
-
 def unitary_linear(args, output_size, bias, bias_start=0.0, scope=None):
   """Linear map: sum_i(args[i] * W[i]), where W[i] is a variable.
 
@@ -180,7 +177,8 @@ def unitary_linear(args, output_size, bias, bias_start=0.0, scope=None):
 
   # Now the computation.
   with tf.variable_scope(scope or "Unitary_Linear"):
-    matrix = tf.get_variable("Unitary_Matrix", [total_arg_size, output_size])
+    matrix = tf.get_variable("Unitary_Matrix", [total_arg_size, output_size], 
+                                initializer = unitary_initializer())
     if len(args) == 1:
       res = tf.matmul(args[0], matrix)
     else:
@@ -190,6 +188,3 @@ def unitary_linear(args, output_size, bias, bias_start=0.0, scope=None):
     bias_term = tf.get_variable("Unitary_Bias", [output_size],
                                 initializer=tf.constant_initializer(bias_start))
   return res + bias_term
-
-
-  '''Nick, the matrix variable tf I think is your weight matrix'''
