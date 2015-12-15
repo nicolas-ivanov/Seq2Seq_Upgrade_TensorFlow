@@ -20,13 +20,8 @@ from rnn_enhancement import rnn_enhanced as rnn
 from rnn_enhancement import rnn_cell_enhanced as rnn_cell
 
 #Warning commenting the two lines below out allows it to work!
-# from rnn_enhancement import linear_functions_enhanced as lfe
-# from rnn_enhancement import decoding_enhanced
-
-
-#in the last run you uncommented both of these!
-
-# import cf
+from rnn_enhancement import linear_functions_enhanced as lfe
+from rnn_enhancement import decoding_enhanced
 
 
 # def extract_argmax_and_embed(prev, _, output_projection, embedding, temperature_decode = False, temperature = 1.0): #placing this function here avoids re-compile time during training!
