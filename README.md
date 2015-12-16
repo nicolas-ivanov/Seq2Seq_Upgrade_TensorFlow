@@ -120,10 +120,13 @@ dropout_first_layer = rnn_cell_enhanced.DropoutWrapper(first_layer, output_keep_
 Currently Tensorflow Provides the ability to stack RNN's as shown below:
 
 ![Current RNN Stack](https://raw.github.com/LeavesBreathe/Project_RNN_Enhancement/master/images/attention_seq2seq.png)
+picture from [tensorflow.org](https://www.tensorflow.org/versions/master/tutorials/seq2seq/index.html)
 
 You can see that the only one connection between layers one and layers three: layer two. 
 
 However, wouldn't be advantageous to somehow connect layer one to three? Or for that matter, layer one to four, or what about layer two to layer four?
+
+![Updated RNN Stack](https://raw.github.com/LeavesBreathe/Project_RNN_Enhancement/master/images/attention_seq2seq_arrows.png)
 
 These are vertical connections, and they can give a more hierarchical, interconnected setup. There are three ways to connect RNN Units:
 

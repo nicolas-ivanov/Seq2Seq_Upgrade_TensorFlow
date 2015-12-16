@@ -114,6 +114,36 @@ class BasicRNNCell(RNNCell):
       return output, output
 
 
+class BasicRNNCell_Interconnect(RNNCell):
+  """The most basic RNN cell. Tanh activation"""
+
+  def __init__(self, num_units, gpu_for_layer, weight_initializer = "uniform_unit", orthogonal_scale_factor = 1.1):
+    self._num_units = num_units
+    self._gpu_for_layer = gpu_for_layer 
+    self._weight_initializer = weight_initializer
+    self._orthogonal_scale_factor = orthogonal_scale_factor
+
+
+  @property
+  def input_size(self):
+    return self._num_units
+
+  @property
+  def output_size(self):
+    return self._num_units
+
+  @property
+  def state_size(self):
+    return self._num_units
+
+  def __call__(self, inputs, state, scope=None):
+    """Most basic RNN: output = new_state = tanh(W * input + U * state + B)."""
+    with tf.device("/gpu:"+str(self._gpu_for_layer)):
+      with tf.variable_scope(scope or type(self).__name__):  # "BasicRNNCell"
+        output = tf.tanh(lfe.linear_enhanced([inputs, state], self._num_units, True, weight_initializer = self._weight_initializer, orthogonal_scale_factor = self._orthogonal_scale_factor))
+      return output, output
+
+
 class UnitaryRNNCell(RNNCell):
   """Unitary RNN from Paper: http://arxiv.org/pdf/1511.06464v1.pdf"""
 
