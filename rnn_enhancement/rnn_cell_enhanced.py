@@ -1239,10 +1239,10 @@ class MultiRNNCell_Interconnect(RNNCell):
 
 
 
-     if i == 0: #we can't do any vertical layer connections on layer 1!
+    if i == 0: #we can't do any vertical layer connections on layer 1!
             cur_state = tf.slice(state, begin = [0, cur_state_pos], size = [-1, cell.state_size])
             cur_state_pos += cell.state_size #i think we need multiply this by two?
-          else:
+    else:
 
             cur_state = tf.slice(state, [0, cur_state_pos], [-1, cell.state_size])
 

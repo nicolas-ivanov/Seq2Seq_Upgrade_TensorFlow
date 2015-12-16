@@ -169,7 +169,7 @@ def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
       states.append(new_state)
 
 
-      
+
       # Run the attention mechanism.
       attns = attention(new_state)
       with tf.variable_scope("AttnOutputProjection"):
@@ -491,22 +491,26 @@ def norm_stabilizer_loss(logits_to_normalize, norm_regularizer_factor = 50, name
   final_reg_loss: One Scalar Value representing the loss averaged across the batch'''
 
   with tf.op_scope(logits_to_normalize, name, "norm_stabilizer_loss"): #need to have this for tf to work
-    batch_size = tf.shape(logits_to_normalize[0])[0] #you choose the batch size number
+    batch_size = tf.shape(logits_to_normalize[0])[0] #you choose the batch size number -- this makes a tensor
 
-    squared_sum = tf.zeros((batch_size),tf.float32) #batch size in zeros
+    squared_sum = tf.zeros_like(batch_size,dtype = tf.float32) #batch size in zeros
     for q in xrange(len(logits_to_normalize)-1): #this represents the summation part from t to T
       '''one problem you're having right now is that you can't take the sqrt of negative number...you need to figure this out first
 
       You need to take the euclidean norm of the value -- can't find how to do this in tf....
 
       okay so Amn matrix means that the m is going down and n is going horizontal -- so we choose to reduce sum on axis 1 '''
-      difference = tf.sub(lfe.frobenius_norm(logits_to_normalize[q+1], reduction_indices = 1),lfe.frobenius_norm(logits_to_normalize[q], reduction_indices = 1))
-      '''the difference has the dimensions of [batch_size]'''
+      difference = tf.sub(lfe.frobenius_norm(logits_to_normalize[q+1], reduction_indices = 1),
+              lfe.frobenius_norm(logits_to_normalize[q], reduction_indices = 1))
 
-      squared_sum = tf. add(squared_sum, tf.square(difference))
+      '''the difference has the dimensions of [batch_size]'''
+      squared_sum = tf.add(squared_sum, tf.square(difference))
+
     #We want to average across batch sizes and divide by T
-    final_reg_loss = norm_regularizer_factor*(tf.add_n(squared_sum)/((len(logits_to_normalize))*(batch_size)))
-    return final_reg_loss
+    batch_size_times_len_logits = len(logits_to_normalize)*tf.to_float(batch_size)
+    final_reg_loss = norm_regularizer_factor*(tf.add_n([squared_sum]))/batch_size_times_len_logits
+    
+  return final_reg_loss
 
 def rnn_l2_loss(logits_to_normalize, l2_loss_factor = 10, name = None):
 
@@ -514,6 +518,8 @@ def rnn_l2_loss(logits_to_normalize, l2_loss_factor = 10, name = None):
   Specifically want to thank spurious_recollectio on reddit for discussing this suggestion with me '''
 
   '''Will add a L2 Loss linearly to the softmax cost function.
+
+  The Equation of the Cost Is: loss += alpha * T.sum((T.dot(W, W.T) - (1.05)*2 T.identity_like(W)) * 2)
 
     Args:
   logits_to_normalize:This can be output logits or hidden states. The state of each decoder cell in each time-step. This is a list
@@ -607,11 +613,15 @@ def model_with_buckets(encoder_inputs, decoder_inputs, targets, weights,
       '''CALCULATE NORM REGULARIZE LOSS HERE'''
       final_reg_loss = 0
       if norm_regularize_hidden_states:
+        print('Warning -- You have opted to Use Norm Regularize Hidden States. Your Regularizer factor is:', norm_regularizer_factor)
         final_reg_loss = norm_stabilizer_loss(bucket_states, norm_regularizer_factor = norm_regularizer_factor)
       if norm_regularize_logits:
         final_reg_loss += norm_stabilizer_loss(bucket_outputs, norm_regularizer_factor = norm_regularizer_factor)
+        print('Warning -- You have opted to Use Norm Regularize Input Logits. Your Regularizer factor is:', norm_regularizer_factor)
       if apply_l2_loss:
         final_reg_loss += rnn_l2_loss(l2_loss_factor = l2_loss_factor)
+        print('Warning -- You have opted to Use RNN L2 Orthongonal Loss, Your Scaling factor is:', l2_loss_factor)
+
       losses.append(final_reg_loss + sequence_loss(
           outputs[-1], bucket_targets, bucket_weights, num_decoder_symbols,
           softmax_loss_function=softmax_loss_function))

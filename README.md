@@ -165,7 +165,7 @@ If you set layer_skip_number = 1, then layer 1 will be connected to layer 3, lay
 
 
 ##Norm Regularize Hidden States And Outputs
-####Under Testing
+####Feature Working
 
 [Krueger's paper](http://arxiv.org/pdf/1511.08400.pdf)
 
@@ -180,7 +180,7 @@ from Project_RNN_Enhancement.rnn_enhancement import seq2seq_enhanced
 #to regularize both
 seq2seq_enhanced.model_with_buckets(...norm_regularize_hidden_states = True, 
 										norm_regularize_logits = True, norm_regularize_factor = 50)
-#to regularize one
+#to regularize just the hidden states
 seq2seq_enhanced.model_with_buckets(...norm_regularize_hidden_states = True, 
 										norm_regularize_logits = False, norm_regularize_factor = 50)
 ```
@@ -188,6 +188,12 @@ seq2seq_enhanced.model_with_buckets(...norm_regularize_hidden_states = True,
 `norm_regularizer_factor`: The factor required to apply norm stabilization. Keep 
 in mind that a larger factor will allow you to achieve a lower loss, but it will take
 many more epochs to do so!
+
+Also keep in mind that the paper reports worse findings when combining this with dropout. So you may want to remove dropout from your neural net if you choose to use `norm_regularizer`!
+
+This additional cost function should not take extra memory. It may slightly raise computation time.
+
+**Note:** Your overall cost/loss will go up if you use this. However, your `norm_regularizer` neural net may score better than your non `norm_regularizer` network. Make sure you don't just compare validation loss to other objective functions. Score your neural net's performance on an independent benchmark (such as BLEU)! 
 
 
 ##GRU Mutants

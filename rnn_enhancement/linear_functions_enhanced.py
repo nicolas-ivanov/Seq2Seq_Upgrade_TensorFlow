@@ -14,9 +14,6 @@ import tensorflow as tf
 #warning the line below can break you're code if you turn it on! RNN weights will be initialized the wrong way!
 from Project_RNN_Enhancement.rnn_enhancement import initializers_enhanced as ie
 
-print('Linear functions enhanced has been imported')
-
-
 
 def enhanced_linear(args, output_size, bias, bias_start=0.0, weight_initializer = "uniform_unit", 
   orthogonal_scale_factor = 1.1, scope=None):
@@ -84,15 +81,15 @@ def enhanced_linear(args, output_size, bias, bias_start=0.0, weight_initializer 
   '''Nick, the matrix variable tf I think is your weight matrix'''
 
 def euclidean_norm(tensor, reduction_indices = None, name = None):
-	with tf.op_scope(tensor + reduction_indices, name, "euclidean_norm"): #need to have this for tf to work
-		squareroot_tensor = tf.square(tensor)
-		euclidean_norm = tf.sum(squareroot_tensor, reduction_indices =  reduction_indices)
+	with tf.op_scope([tensor, reduction_indices], name, "euclidean_norm"): #need to have this for tf to work
+		square_tensor = tf.square(tensor)
+		euclidean_norm = tf.reduce_sum(square_tensor, reduction_indices =  reduction_indices)
 		return euclidean_norm
 
 def frobenius_norm(tensor, reduction_indices = None, name = None):
-	with tf.op_scope(tensor + reduction_indices, name, "frobenius_norm"): #need to have this for tf to work
-		squareroot_tensor = tf.square(tensor)
-		tensor_sum = tf.sum(squareroot_tensor, reduction_indices =  reduction_indices)
+	with tf.op_scope([tensor, reduction_indices], name, "frobenius_norm"): #need to have this for tf to work
+		square_tensor = tf.square(tensor)
+		tensor_sum = tf.reduce_sum(square_tensor, reduction_indices = reduction_indices)
 		frobenius_norm = tf.sqrt(tensor_sum)
 		return frobenius_norm
 
