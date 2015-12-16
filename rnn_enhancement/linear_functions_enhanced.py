@@ -19,7 +19,7 @@ print('Linear functions enhanced has been imported')
 
 
 def enhanced_linear(args, output_size, bias, bias_start=0.0, weight_initializer = "uniform_unit", 
-  orthogonal_scale = 1.1, scope=None):
+  orthogonal_scale_factor = 1.1, scope=None):
   """Linear map: sum_i(args[i] * W[i]), where W[i] is a variable.
 
   Args:
@@ -63,7 +63,7 @@ def enhanced_linear(args, output_size, bias, bias_start=0.0, weight_initializer 
     elif weight_initializer == "identity":
       matrix = tf.get_variable("Identity_Matrix", [total_arg_size, output_size], initializer = ie.identity_initializer()) #fix this when you get a chance for identity?
     elif weight_initializer == "orthogonal":
-      matrix = tf.get_variable("Orthogonal_Matrix", [total_arg_size, output_size], initializer = ie.orthogonal_initializer(scale = orthogonal_scale)) #fix this when you get a chance for identity?
+      matrix = tf.get_variable("Orthogonal_Matrix", [total_arg_size, output_size], initializer = ie.orthogonal_initializer(scale = orthogonal_scale_factor)) #fix this when you get a chance for identity?
     else:
       raise ValueError("weight_initializer not set correctly: %s Initializers: uniform_unit, identity, orthogonal" % weight_initializer)
 

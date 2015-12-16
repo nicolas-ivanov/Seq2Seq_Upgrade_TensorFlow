@@ -34,7 +34,7 @@ import cf
 
 
 def average_hidden_states(decoder_states, average_hidden_state_influence = 0.5, name = None):
-  print('WARNING YOU ARE USING HIDDEN STATES LINE 45ISH========================================@@@@@@@@@@@@@@@@')
+  print('WARNING YOU ARE USING HIDDEN STATES')
   with tf.op_scope(decoder_states + average_hidden_state_influence, name, "average_hidden_states"):
     mean_decoder_states = tf.reduce_mean(decoder_states, 0) #nick double check the axis is right!
     final_decoder_state = tf.add((1 - average_hidden_state_influence) * decoder_states[-1], average_hidden_state_influence*mean_decoder_states)
@@ -136,7 +136,7 @@ def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
              for _ in xrange(num_heads)]
     for a in attns:  # Ensure the second shape of attention vectors is set.
       a.set_shape([None, attn_size])
-    for i in xrange(len(decoder_inputs)):
+    for i in xrange(len(decoder_inputs)): #RIGHT HERE! THIS IS A LIST OF DECODING TIMESTEPS! WHAAAAHOOOOO!!!!
       if i > 0:
         tf.get_variable_scope().reuse_variables()
       inp = decoder_inputs[i]
@@ -158,12 +158,18 @@ def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
       hidden_state_input = states[-1]
       if average_states:
         '''implement averaging of states'''
-        print('WARNING YOU HAVE OPTED TO USE THE AVERAGING OF STATES!!!!!!!!!!!!!!!!!!!!!@@@@@@@@@@@')
+        print('WARNING YOU HAVE OPTED TO USE THE AVERAGING OF STATES!')
         hidden_state_input = average_hidden_states(states, average_hidden_state_influence) 
 
       # Run the RNN.
+
+      #right here, you could potentially make the skip-connections? I think you would have to 
+      #you would have to save the output part here, and then transfer it to the next part. 
       cell_output, new_state = cell(x, hidden_state_input) #nick, changed this to your hidden state input
       states.append(new_state)
+
+
+      
       # Run the attention mechanism.
       attns = attention(new_state)
       with tf.variable_scope("AttnOutputProjection"):
@@ -330,6 +336,7 @@ def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
     # Decoder.
     output_size = None
     if output_projection is None:
+      #right here they modify the outputprojectionwrapper
       cell = rnn_cell.OutputProjectionWrapper(cell, num_decoder_symbols)
       output_size = num_decoder_symbols
 
@@ -468,7 +475,7 @@ def sequence_loss(logits, targets, weights, num_decoder_symbols,
 def norm_stabilizer_loss(logits_to_normalize, norm_regularizer_factor = 50, name = None):
 
 
-  print('WARNING ------YOU HAVE OPTED TO USE NORM STABILIZER LOSS -------------------------------------------===================@@@@@@@@@@@@@@@@@@@')
+  print('WARNING ------YOU HAVE OPTED TO USE NORM STABILIZER LOSS -------------------------------')
   '''Will add a Norm Stabilizer Loss 
 
     Args:

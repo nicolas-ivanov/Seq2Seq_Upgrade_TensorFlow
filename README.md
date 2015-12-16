@@ -3,7 +3,7 @@ Additional RNN and Sequence to Sequence Features for TensorFlow
 
 TensorFlow is great, but there are some RNN and Seq2Seq features that could be added. The goal is to add them as research in this field unfolds.
 
-That's why there's this additional python package. This is meant to work in conjunction with TensorFlow. Simply clone this and import as:
+This python package is meant to work in conjunction with TensorFlow. Simply clone this and import as:
 
 ```python
 sys.path.insert(0, os.environ['HOME']) #add the dir that you cloned to
@@ -14,9 +14,9 @@ from Project_RNN_Enhancement.rnn_enhancement import seq2seq_enhanced, rnn_cell_e
 
 - [Different RNN Layers on Multiple GPU's](#different-rnn-layers-on-multiple-gpus)
 - [GRU Mutants](#gru-mutants) -- [Jozefowicz's paper](http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf)
-- Skip Connection Inputs In Between Unrolled Neurons
+- Custom Vertical Connections Between Stacked RNN Layers
 - [Identity RNN's](#identity-rnn) -- [Le's paper](http://arxiv.org/pdf/1504.00941v2.pdf)
-- [Orthogonal and Uniform Initialization of Weights](#orthogonal-identity-and-uniform-initialization-of-weights) -- [Saxe's Paper](http://arxiv.org/pdf/1312.6120v3.pdf)
+- [Orthogonal and Uniform Initialization of Weights](#orthogonal-and-uniform-initialization-of-weights) -- [Saxe's Paper](http://arxiv.org/pdf/1312.6120v3.pdf)
 
 ##Seq2Seq Features
 
@@ -27,8 +27,8 @@ from Project_RNN_Enhancement.rnn_enhancement import seq2seq_enhanced, rnn_cell_e
 
 ####Currently Working On:
 
-- Unitary RNN (will take at least 2 weeks) --[Arjovsky's paper](http://arxiv.org/abs/1511.06464v2.pdf)
-- Diversity-Promoting Objective (1 week) -- [Li's paper](http://arxiv.org/pdf/1510.03055v1.pdf)
+- Unitary RNN --[Arjovsky's paper](http://arxiv.org/abs/1511.06464v2.pdf)
+- Diversity-Promoting Objective -- [Li's paper](http://arxiv.org/pdf/1510.03055v1.pdf)
 - L2 Regularization on Seq2Seq model
 - Interconnections between RNN Layers
 
@@ -36,13 +36,13 @@ from Project_RNN_Enhancement.rnn_enhancement import seq2seq_enhanced, rnn_cell_e
 ####Features To Come If There's Time:
 
 - Async Loading Data during training 
-- Grid LSTM Decoder -- [Kalchbrenner's Paper]()http://arxiv.org/pdf/1507.01526v2.pdf
+- Grid LSTM Decoder -- [Kalchbrenner's Paper](http://arxiv.org/pdf/1507.01526v2.pdf)
 - Decorrelating Representations -- [Cogswell's Paper](http://arxiv.org/pdf/1511.06068v1.pdf)
 - Curriculum Learning 
 - Removing Biases From GRU and LSTM (some reports that it improves performance)
 - Relaxation Parameter from Neural GPU [Kaiser's Paper](http://arxiv.org/pdf/1511.08228v1.pdf)
 
-You will find many, *many* comments in the code. Just like you guys, I'm still very much learning and it helps me to comment as much as possible. 
+You will find *many* comments and prints in the code. Just like you guys, I'm still very much learning and it helps me to comment and visually see as much as possible. 
 
 Lastly, I'm still have much to learn, so I apologize for mistakes in advance. I welcome pull requests and any help. 
 
@@ -113,6 +113,52 @@ from Project_RNN_Enhancement.rnn_enhancement import rnn_cell_enhanced
 first_layer = rnn_cell_enhanced.GRUCell(size, gpu_for_layer = 1)
 dropout_first_layer = rnn_cell_enhanced.DropoutWrapper(first_layer, output_keep_prob = 0.80, gpu_for_layer = 1)
 ```
+
+##Custom Vertical Connections Between Stacked RNNs
+####Under Testing
+
+Currently Tensorflow Provides the ability to stack RNN's as shown below:
+
+![Current RNN Stack](https://raw.github.com/LeavesBreathe/Project_RNN_Enhancement/master/images/attention_seq2seq.png)
+
+You can see that the only one connection between layers one and layers three: layer two. 
+
+However, wouldn't be advantageous to somehow connect layer one to three? Or for that matter, layer one to four, or what about layer two to layer four?
+
+These are vertical connections, and they can give a more hierarchical, interconnected setup. There are three ways to connect RNN Units:
+
+- Pass the Output to the next neuron
+- Pass the Input to the next neuron
+- Pass the Hidden State to the next neuron 
+
+With this feature, you can pass Hidden States and Inputs from one layer to one above it. Note how you can only do inputs because the inputs of layer 2 is the outputs of layer 1. So there is no need to do inputs and outputs.
+
+To have the RNN actually recieve the additional inputs demands some extra customization on the RNN. Currently the GRU and Vanilla RNN have been modified to use these additional inputs. However, it costs extra memory and computation power!
+
+To use Vertical Connections:
+
+```python      
+from Project_RNN_Enhancement.rnn_enhancement import rnn_cell_enhanced as rce
+
+layer1 = rce.GRUCell_Interconnect(....)
+
+layer2 = rce.GRUCell_Interconnect(....)
+
+cell = rce.MultiRNNCell_Interconnect([layer1, layer2], vertically_pass_hidden_states = True, layer_skip_number = 0 )
+
+#or you can do
+
+cell = rce.MultiRNNCell_Interconnect([layer1, layer2], vertically_pass_hidden_states = True, 
+		vertically_pass_inputs = True, layer_skip_number = 2)
+
+```	
+
+Args:
+- vertically_pass_hidden_states = True/False
+- vertically_pass_inputs = True/False
+- layer_skip_number: This int must be between 0 and (total_num_layers -1)
+
+If you set layer_skip_number = 1, then layer 1 will be connected to layer 3, layer 2 to layer 4, layer 3 to layer 5, and so on!
 
 
 ##Norm Regularize Hidden States And Outputs
@@ -250,7 +296,7 @@ seq2seq_model = sse.embedding_attention_seq2seq(....,temperature_decode = True, 
 
 
 ##Orthogonal and Uniform Initialization of Weights
-####Under Testing
+####Feature Working
 
 Allows one to initialize your weights for each layer. To use:
 

@@ -268,7 +268,7 @@ class UnitaryRNNCell(RNNCell):
 class JZS1Cell(RNNCell):
   """Mutant 1 of the following paper: http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf"""
 
-  def __init__(self, num_units, gpu_for_layer = 0, weight_initializer = "uniform_unit", orthogonal_scale_factor = 1.1, orthogonal_scale_factor = 1.1):
+  def __init__(self, num_units, gpu_for_layer = 0, weight_initializer = "uniform_unit", orthogonal_scale_factor = 1.1):
     self._num_units = num_units
     self._gpu_for_layer = gpu_for_layer 
     self._weight_initializer = weight_initializer
@@ -493,6 +493,88 @@ class GRUCell(RNNCell):
         return new_h, new_h
 
 
+class GRUCell_InterConnect(RNNCell):
+  """This Second GRU Layer can take regular inputs and past timesGated Recurrent Unit cell (cf. http://arxiv.org/abs/1406.1078)."""
+  'It takes two inputs and one hidden state'
+  def __init__(self, num_units, gpu_for_layer = 0, weight_initializer = "uniform_unit", orthogonal_scale_factor = 1.1,
+    skip_connections = False, skip_neuron_number = 4):
+    self._num_units = num_units
+    self._gpu_for_layer = gpu_for_layer 
+    self._weight_initializer = weight_initializer
+    self._orthogonal_scale_factor = orthogonal_scale_factor
+    self._skip_connections = skip_connections
+    self._skip_neuron_number = skip_neuron_number
+
+
+  @property
+  def input_size(self):
+    return self._num_units
+
+  @property
+  def output_size(self):
+    return self._num_units
+
+  @property
+  def state_size(self):
+    return self._num_units
+
+  def __call__(self, inputs, state, past_inputs = None, past_states = None, scope=None):
+    with tf.device("/gpu:"+str(self._gpu_for_layer)):
+
+      '''This is a modified GRU that has the ability to incorporate an additional past input and/or 
+      additional past state. Very useful for skip-connecting RNN's horizontally or vertically. '''
+
+      if past_inputs is not None and past_states is None:
+
+          with tf.variable_scope(scope or type(self).__name__):  # "GRUCell"
+            with tf.variable_scope("Gates"):  # Reset gate and update gate.
+              r, u, pr = tf.split(1, 3, lfe.enhanced_linear([inputs, state, past_inputs],
+                                                  3 * self._num_units, True, 1.0, weight_initializer = self._weight_initializer, orthogonal_scale_factor = self._orthogonal_scale_factor))
+              r, u, pr = tf.sigmoid(r), tf.sigmoid(u), tf.sigmoid(pr)
+            with tf.variable_scope("Candidate"): #you need a different one because you're doing a new linear
+              c = tf.tanh(linear.linear([inputs, r * state, pr*state], self._num_units, True))
+            new_h = u * state + (1 - u) * c
+          return new_h, new_h
+
+      elif past_states is not None and past_inputs is None:
+
+          with tf.variable_scope(scope or type(self).__name__):  # "GRUCell"
+            with tf.variable_scope("Gates"):  # Reset gate and update gate.
+              r, u, ps = tf.split(1, 3, lfe.enhanced_linear([inputs, state, past_states],
+                                                  3 * self._num_units, True, 1.0, weight_initializer = self._weight_initializer, orthogonal_scale_factor = self._orthogonal_scale_factor))
+              r, u, ps = tf.sigmoid(r), tf.sigmoid(u), tf.sigmoid(ps)
+            with tf.variable_scope("Candidate"): #you need a different one because you're doing a new linear
+              c = tf.tanh(linear.linear([inputs, r * state], self._num_units, True))
+            new_h = u * state + (1 - u) * c + (1 - ps) * c
+          return new_h, new_h
+
+      elif past_states is not None and past_inputs is not None:
+
+          with tf.variable_scope(scope or type(self).__name__):  # "GRUCell"
+            with tf.variable_scope("Gates"):  # Reset gate and update gate.
+              r, u, pr, ps = tf.split(1, 4, lfe.enhanced_linear([inputs, state, past_inputs, past_states],
+                                                  4 * self._num_units, True, 1.0, weight_initializer = self._weight_initializer, orthogonal_scale_factor = self._orthogonal_scale_factor))
+              r, u, pr, ps = tf.sigmoid(r), tf.sigmoid(u), tf.sigmoid(pr), tf.sigmoid(ps)
+            with tf.variable_scope("Candidate"): #you need a different one because you're doing a new linear
+              c = tf.tanh(linear.linear([inputs, r * state, pr*state], self._num_units, True))
+            new_h = u * state + ps * past_states + (1 - u) * c + (1 - ps) * c
+          return new_h, new_h
+
+      else:
+          with tf.variable_scope(scope or type(self).__name__):  # "GRUCell"
+            with tf.variable_scope("Gates"):  # Reset gate and update gate.
+              # We start with bias of 1.0 to not reset and not udpate.
+              r, u = tf.split(1, 2, lfe.enhanced_linear([inputs, state],
+                                                  2 * self._num_units, True, 1.0, weight_initializer = self._weight_initializer, orthogonal_scale_factor = self._orthogonal_scale_factor))
+              r, u = tf.sigmoid(r), tf.sigmoid(u)
+            with tf.variable_scope("Candidate"): #you need a different one because you're doing a new linear
+              #notice they have the activation/non-linear step right here! 
+              c = tf.tanh(linear.linear([inputs, r * state], self._num_units, True))
+            new_h = u * state + (1 - u) * c
+          return new_h, new_h
+
+
+          
 
 class BasicLSTMCell(RNNCell):
   """Basic LSTM recurrent network cell.
@@ -1027,6 +1109,7 @@ class MultiRNNCell(RNNCell):
   def __call__(self, inputs, state, scope=None):
     """Run this multi-layer cell on inputs, starting from state."""
     with tf.variable_scope(scope or type(self).__name__):  # "MultiRNNCell"
+      #this loop is ran every timestep, so here we can do some serious connecting. 
       cur_state_pos = 0
       cur_inp = inputs
       new_states = []
@@ -1034,16 +1117,22 @@ class MultiRNNCell(RNNCell):
         with tf.variable_scope("Cell%d" % i):
           cur_state = tf.slice(state, [0, cur_state_pos], [-1, cell.state_size])
           cur_state_pos += cell.state_size
-          cur_inp, new_state = cell(cur_inp, cur_state)
+          cur_inp, new_state = cell(cur_inp, cur_state) #this replaces cur_inp to a differen input
           new_states.append(new_state)
-    return cur_inp, tf.concat(1, new_states)
+    return cur_inp, tf.concat(1, new_states) #along dimension 1, they are concatenating the new states. 
 
 class MultiRNNCell_Interconnect(RNNCell):
   """RNN cell composed sequentially of multiple simple cells.
 
-  This class is made to interconnect RNN cells between layers."""
+  This class is made to interconnect RNN cells between layers. By this, you can directly pass hidden states 
+  and inputs from one unit to another unit vertically or horizontally."""
 
-  def __init__(self, cells):
+  "In Graves Paper,http://arxiv.org/pdf/1507.01526v2.pdf, there is a combination of the hidden states "
+
+  def __init__(self, cells, vertically_pass_hidden_states = False,
+    vertically_pass_inputs = False,
+    layer_skip_number = 0):
+
     """Create a RNN cell composed sequentially of a number of RNNCells.
 
     Args:
@@ -1054,12 +1143,23 @@ class MultiRNNCell_Interconnect(RNNCell):
     """
     if not cells:
       raise ValueError("Must specify at least one cell for MultiRNNCell.")
-    for i in xrange(len(cells) - 1):
-      if cells[i + 1].input_size != cells[i].output_size:
+    for i in xrange(len(cells) - 1): #this counts the number of cells total
+      if cells[i + 1].input_size != cells[i].output_size: #weird that they have this mismatch -- wonder why
         raise ValueError("In MultiRNNCell, the input size of each next"
                          " cell must match the output size of the previous one."
                          " Mismatched output size in cell %d." % i)
+
+    if horizontally_pass_inputs and vertically_pass_inputs:
+      raise ValueError("You have opted to use both horizontal and vertically pass inputs."
+        "You must select only  one of these!")
+    if horizontally_pass_hidden_states and vertically_pass_hidden_states:
+      raise ValueError("You have opted to use both horizontal and vertically pass hidden states."
+        "You must select only one of these!")     
+
     self._cells = cells
+    self._vertically_pass_hidden_states = vertically_pass_hidden_states
+    self._vertically_pass_inputs = vertically_pass_inputs
+    self._layer_skip_number = layer_skip_number
 
   @property
   def input_size(self):
@@ -1079,10 +1179,45 @@ class MultiRNNCell_Interconnect(RNNCell):
       cur_state_pos = 0
       cur_inp = inputs
       new_states = []
-      for i, cell in enumerate(self._cells):
-        with tf.variable_scope("Cell%d" % i):
+      total_number_of_layers = len(self._cells)
+      past_inp = None
+      past_state = None
+
+      for i, cell in enumerate(self._cells): #so here is a list of te cells
+        with tf.variable_scope("Cell%d" % i): #for each layer, we make a different variable scope
+          '''okay nick, the idea here is to add additional state and inputs!'''
+
           cur_state = tf.slice(state, [0, cur_state_pos], [-1, cell.state_size])
           cur_state_pos += cell.state_size
-          cur_inp, new_state = cell(cur_inp, cur_state)
+
+          '''note, this is the actual command of the layer'''
+          cur_inp, new_state = cell(cur_inp, cur_state, past_inp, past_state)
+
+          if self._vertically_pass_inputs:
+            past_inp = cur_inp
+          if self._vertically_pass_hidden_states:
+            past_state = cur_state
+
           new_states.append(new_state)
     return cur_inp, tf.concat(1, new_states)
+
+
+    cur_state = tf.slice(state, [0, cur_state_pos], [-1, cell.state_size])
+    cur_state_pos += cell.state_size
+    cur_inp, new_state = cell(cur_inp, cur_state)
+    new_states.append(new_state)
+
+
+
+     if i == 0: #we can't do any vertical layer connections on layer 1!
+            cur_state = tf.slice(state, begin = [0, cur_state_pos], size = [-1, cell.state_size])
+            cur_state_pos += cell.state_size #i think we need multiply this by two?
+          else:
+
+            cur_state = tf.slice(state, [0, cur_state_pos], [-1, cell.state_size])
+
+            cur_state = tf.slice(state, [0, cur_state_pos], [-1, cell.state_size])
+
+            cur_state_pos += 2*cell.state_size #i think we need multiply this by two?
+
+            # cur_state_pos += (total_number_of_layers+1-i)*cell.state_size #i think we need multiply this by two?
