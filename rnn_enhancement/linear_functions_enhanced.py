@@ -55,7 +55,6 @@ def enhanced_linear(args, output_size, bias, bias_start=0.0, weight_initializer 
 
     '''initialize weight matrix properly''' #fix this part!
     if weight_initializer == "uniform_unit":
-      print('on linear_functions_enhanced, you selected to do uniform unit.')
       matrix = tf.get_variable("Uniform_Matrix", [total_arg_size, output_size], initializer = tf.uniform_unit_scaling_initializer()) 
     elif weight_initializer == "identity":
       matrix = tf.get_variable("Identity_Matrix", [total_arg_size, output_size], initializer = ie.identity_initializer()) #fix this when you get a chance for identity?

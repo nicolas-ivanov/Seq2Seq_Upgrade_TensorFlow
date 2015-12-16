@@ -508,8 +508,12 @@ def norm_stabilizer_loss(logits_to_normalize, norm_regularizer_factor = 50, name
 
     #We want to average across batch sizes and divide by T
     batch_size_times_len_logits = len(logits_to_normalize)*tf.to_float(batch_size)
-    final_reg_loss = norm_regularizer_factor*(tf.add_n([squared_sum]))/batch_size_times_len_logits
-    
+
+
+    final_reg_loss = norm_regularizer_factor*(tf.reduce_sum(squared_sum))/batch_size_times_len_logits
+    print('for testing purposes the final reg loss is printed below')
+    print(final_reg_loss)
+    #i think currently the problem right now is that this is returning an array rather than a number scalar
   return final_reg_loss
 
 def rnn_l2_loss(logits_to_normalize, l2_loss_factor = 10, name = None):
@@ -544,7 +548,7 @@ def rnn_l2_loss(logits_to_normalize, l2_loss_factor = 10, name = None):
 
     matrix_dot_product= tf.sub(tf.matmul(Weights_for_l2_loss, Weights_for_l2_loss, transpose_b = True), 1)
 
-    final_l2_loss = l2_loss_factor*(tf.add_n(matrix_dot_product)/(batch_size))
+    final_l2_loss = l2_loss_factor*(tf.reduce_sum(matrix_dot_product)/(batch_size))
   return final_l2_loss
 
 
@@ -621,6 +625,9 @@ def model_with_buckets(encoder_inputs, decoder_inputs, targets, weights,
       if apply_l2_loss:
         final_reg_loss += rnn_l2_loss(l2_loss_factor = l2_loss_factor)
         print('Warning -- You have opted to Use RNN L2 Orthongonal Loss, Your Scaling factor is:', l2_loss_factor)
+
+      print('the final reg loss is printed below')
+      print(final_reg_loss)
 
       losses.append(final_reg_loss + sequence_loss(
           outputs[-1], bucket_targets, bucket_weights, num_decoder_symbols,
