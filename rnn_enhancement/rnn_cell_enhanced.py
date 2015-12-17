@@ -1210,8 +1210,8 @@ class MultiRNNCell_Interconnect(RNNCell):
       cur_inp = inputs
       new_states = []
       total_number_of_layers = len(self._cells)
-      past_inp = None
-      past_state = None
+      inp_queue = []
+      state_queue = []
 
       for i, cell in enumerate(self._cells): #so here is a list of te cells
         with tf.variable_scope("Cell%d" % i): #for each layer, we make a different variable scope
@@ -1219,35 +1219,26 @@ class MultiRNNCell_Interconnect(RNNCell):
 
           cur_state = tf.slice(state, [0, cur_state_pos], [-1, cell.state_size])
           cur_state_pos += cell.state_size
+          
+          if i > self._layer_skip_number:
+            # Remove from front of queue  
+            if self._vertically_pass_inputs:
+              past_inp = inp_queue.pop(0)
+            if self._vertically_pass_hidden_states:
+              past_state = state_queue.pop(0)
+          else:
+            past_inp = None
+            past_state = None
+
+          if i + self._layer_skip_number <= total_number_of_layers:
+            # Add to back of queue            
+            if self._vertically_pass_inputs:
+              inp_queue.append(cur_inp)
+            if self._vertically_pass_hidden_states:
+              state_queue.append(cur_state)
 
           '''note, this is the actual command of the layer'''
           cur_inp, new_state = cell(cur_inp, cur_state, past_inp, past_state)
 
-          if self._vertically_pass_inputs:
-            past_inp = cur_inp
-          if self._vertically_pass_hidden_states:
-            past_state = cur_state
-
           new_states.append(new_state)
     return cur_inp, tf.concat(1, new_states)
-
-
-    cur_state = tf.slice(state, [0, cur_state_pos], [-1, cell.state_size])
-    cur_state_pos += cell.state_size
-    cur_inp, new_state = cell(cur_inp, cur_state)
-    new_states.append(new_state)
-
-
-
-    if i == 0: #we can't do any vertical layer connections on layer 1!
-            cur_state = tf.slice(state, begin = [0, cur_state_pos], size = [-1, cell.state_size])
-            cur_state_pos += cell.state_size #i think we need multiply this by two?
-    else:
-
-            cur_state = tf.slice(state, [0, cur_state_pos], [-1, cell.state_size])
-
-            cur_state = tf.slice(state, [0, cur_state_pos], [-1, cell.state_size])
-
-            cur_state_pos += 2*cell.state_size #i think we need multiply this by two?
-
-            # cur_state_pos += (total_number_of_layers+1-i)*cell.state_size #i think we need multiply this by two?

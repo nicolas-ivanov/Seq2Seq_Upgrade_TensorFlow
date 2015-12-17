@@ -511,32 +511,51 @@ def norm_stabilizer_loss(logits_to_normalize, norm_regularizer_factor = 50, name
 
 
     final_reg_loss = norm_regularizer_factor*(tf.reduce_sum(squared_sum))/batch_size_times_len_logits
-    print('for testing purposes the final reg loss is printed below')
-    print(final_reg_loss)
     #i think currently the problem right now is that this is returning an array rather than a number scalar
   return final_reg_loss
 
-def rnn_l2_loss(logits_to_normalize, l2_loss_factor = 10, name = None):
+def l1_orthogonal_regularizer(logits_to_normalize, l1_alpha_loss_factor = 10, name = None):
 
-  '''Motivation from this loss function comes from: https://www.reddit.com/r/MachineLearning/comments/3uk2q5/151106464_unitary_evolution_recurrent_neural/
-  Specifically want to thank spurious_recollectio on reddit for discussing this suggestion with me '''
+  '''Motivation from this loss function comes from: https://redd.it/3wx4sr
+  Specifically want to thank spurious_recollectio and harponen on reddit for discussing this suggestion to me '''
 
-  '''Will add a L2 Loss linearly to the softmax cost function.
+  '''Will add a L1 Loss linearly to the softmax cost function.
 
-  The Equation of the Cost Is: loss += alpha * T.sum((T.dot(W, W.T) - (1.05)*2 T.identity_like(W)) * 2)
-
-    Args:
-  logits_to_normalize:This can be output logits or hidden states. The state of each decoder cell in each time-step. This is a list
-    with length len(decoder_inputs) -- one item for each time-step.
-    Each item is a 2D Tensor of shape [batch_size x cell.state_size] (or it can be [batch_size x output_logits])
-
-  norm_regularizer_factor: The factor required to apply norm stabilization. Keep 
-    in mind that a larger factor will allow you to achieve a lower loss, but it will take
-    many more epochs to do so!
 
     Returns:
   final_reg_loss: One Scalar Value representing the loss averaged across the batch'''
-  #normally get_variable sets the variable as trainable by default. 
+
+  '''this is different than unitary because it is an orthongonal matrix approximation -- it will 
+  suffer from timesteps longer than 500 and will take more computation power of O(n^3)'''
+
+  with tf.op_scope(logits_to_normalize, name, "rnn_l2_loss"): #need to have this for tf to work
+    
+    '''the l1 equation is: alpha * T.abs(T.dot(W, W.T) - (1.05) ** 2 * T.identity_like(W))'''
+    Weights_for_l1_loss = tf.get_variable("linear")
+
+    matrix_dot_product= tf.matmul(Weights_for_l1_loss, Weights_for_l1_loss, transpose_a = True)
+
+    #we need to check here that we have the right dimension -- should it be 0 or the 1 dim?
+    identity_matrix = lfe.identity_like(Weights_for_l1_loss)
+
+    matrix_minus_identity = matrix_dot_product - 2*1.05*identity_matrix
+
+    absolute_cost = tf.abs(matrix_minus_identity)
+    
+    final_l1_loss = l1_alpha_loss_factor*(absolute_cost/batch_size)
+
+  return final_l1_loss
+
+def l2_orthogonal_regularizer(logits_to_normalize, l2_alpha_loss_factor = 10, name = None):
+
+  '''Motivation from this loss function comes from: https://www.reddit.com/r/MachineLearning/comments/3uk2q5/151106464_unitary_evolution_recurrent_neural/
+  Specifically want to thank spurious_recollectio on reddit for discussing this suggestion to me '''
+
+  '''Will add a L2 Loss linearly to the softmax cost function.
+
+
+    Returns:
+  final_reg_loss: One Scalar Value representing the loss averaged across the batch'''
 
   '''this is different than unitary because it is an orthongonal matrix approximation -- it will 
   suffer from timesteps longer than 500 and will take more computation power of O(n^3)'''
@@ -544,11 +563,20 @@ def rnn_l2_loss(logits_to_normalize, l2_loss_factor = 10, name = None):
   with tf.op_scope(logits_to_normalize, name, "rnn_l2_loss"): #need to have this for tf to work
     
     '''somehow we need to get the Weights from the rnns right here....i don't know how! '''
+    '''the l1 equation is: alpha * T.abs(T.dot(W, W.T) - (1.05) ** 2 * T.identity_like(W))'''
+    '''The Equation of the Cost Is: loss += alpha * T.sum((T.dot(W, W.T) - (1.05)*2 T.identity_like(W)) * 2)'''
     Weights_for_l2_loss = tf.get_variable("linear")
 
-    matrix_dot_product= tf.sub(tf.matmul(Weights_for_l2_loss, Weights_for_l2_loss, transpose_b = True), 1)
+    matrix_dot_product= tf.matmul(Weights_for_l2_loss, Weights_for_l2_loss, transpose_a = True)
 
-    final_l2_loss = l2_loss_factor*(tf.reduce_sum(matrix_dot_product)/(batch_size))
+    #we need to check here that we have the right dimension -- should it be 0 or the 1 dim?
+    identity_matrix = lfe.identity_like(Weights_for_l2_loss)
+
+    matrix_minus_identity = matrix_dot_product - 2*1.05*identity_matrix
+
+    square_the_loss = tf.square(matrix_minus_identity)
+
+    final_l2_loss = l2_alpha_loss_factor*(tf.reduce_sum(square_the_loss)/(batch_size))
   return final_l2_loss
 
 
@@ -626,8 +654,6 @@ def model_with_buckets(encoder_inputs, decoder_inputs, targets, weights,
         final_reg_loss += rnn_l2_loss(l2_loss_factor = l2_loss_factor)
         print('Warning -- You have opted to Use RNN L2 Orthongonal Loss, Your Scaling factor is:', l2_loss_factor)
 
-      print('the final reg loss is printed below')
-      print(final_reg_loss)
 
       losses.append(final_reg_loss + sequence_loss(
           outputs[-1], bucket_targets, bucket_weights, num_decoder_symbols,

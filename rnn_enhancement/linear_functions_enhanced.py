@@ -15,6 +15,11 @@ import tensorflow as tf
 from Project_RNN_Enhancement.rnn_enhancement import initializers_enhanced as ie
 
 
+def identity_like(input_tensor, scope = None):
+  with tf.variable_scope(scope or "identity_like"): #in this linear scope, the library that you're retriving is Linear
+    shape_0 = tf.shape(input_tensor)[0]
+  return tf.diag(tf.ones(shape_0))
+
 def enhanced_linear(args, output_size, bias, bias_start=0.0, weight_initializer = "uniform_unit", 
   orthogonal_scale_factor = 1.1, scope=None):
   """Linear map: sum_i(args[i] * W[i]), where W[i] is a variable.

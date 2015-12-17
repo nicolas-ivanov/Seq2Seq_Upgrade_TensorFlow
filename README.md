@@ -163,6 +163,12 @@ Args:
 
 If you set layer_skip_number = 1, then layer 1 will be connected to layer 3, layer 2 to layer 4, layer 3 to layer 5, and so on!
 
+Here is an example of a 6 layer stacked RNN with `layer_skip_number = 1'
+
+![Updated RNN Stacked](https://raw.github.com/LeavesBreathe/Project_RNN_Enhancement/master/images/attention_seq2seq_arrows_double_layer.png)
+
+
+
 
 ##Norm Regularize Hidden States And Outputs
 ####Feature Working
