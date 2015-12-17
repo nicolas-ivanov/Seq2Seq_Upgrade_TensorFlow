@@ -12,7 +12,7 @@ import tensorflow as tf
 
 
 #warning the line below can break you're code if you turn it on! RNN weights will be initialized the wrong way!
-from Project_RNN_Enhancement.rnn_enhancement import initializers_enhanced as ie
+from rnn_enhancement import initializers_enhanced as ie
 
 
 def identity_like(input_tensor, scope = None):
