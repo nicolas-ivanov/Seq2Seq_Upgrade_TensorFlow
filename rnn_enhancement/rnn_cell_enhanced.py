@@ -16,6 +16,10 @@ from rnn_enhancement import linear_enhanced as linear
 from rnn_enhancement import linear_functions_enhanced as lfe
 from rnn_enhancement import unitary_linear
 
+with tf.variable_scope("Skip_Connections"):
+  timestep_counter = tf.Variable(1, trainable = False, name = "timestep_counter")
+  previous_inputs = tf.Variable(0, trainable = False, name = "previous_inputs")
+  previous_hidden_states = tf.Variable(0, trainable = False, name = "previous_inputs")
 
 
 class RNNCell(object):
@@ -82,10 +86,11 @@ class RNNCell(object):
 class BasicRNNCell(RNNCell):
   """The most basic RNN cell. Tanh activation"""
 
-  def __init__(self, num_units, gpu_for_layer, weight_initializer = "uniform_unit"):
+  def __init__(self, num_units, gpu_for_layer, weight_initializer = "uniform_unit", orthogonal_scale_factor = 1.1):
     self._num_units = num_units
     self._gpu_for_layer = gpu_for_layer 
     self._weight_initializer = weight_initializer
+    self._orthogonal_scale_factor = orthogonal_scale_factor
 
 
   @property
@@ -104,17 +109,48 @@ class BasicRNNCell(RNNCell):
     """Most basic RNN: output = new_state = tanh(W * input + U * state + B)."""
     with tf.device("/gpu:"+str(self._gpu_for_layer)):
       with tf.variable_scope(scope or type(self).__name__):  # "BasicRNNCell"
-        output = tf.tanh(lfe.linear_enhanced([inputs, state], self._num_units, True, weight_initializer = self._weight_initializerF ))
+        output = tf.tanh(lfe.linear_enhanced([inputs, state], self._num_units, True, weight_initializer = self._weight_initializer, orthogonal_scale_factor = self._orthogonal_scale_factor))
+      return output, output
+
+
+class BasicRNNCell_Interconnect(RNNCell):
+  """The most basic RNN cell. Tanh activation"""
+
+  def __init__(self, num_units, gpu_for_layer, weight_initializer = "uniform_unit", orthogonal_scale_factor = 1.1):
+    self._num_units = num_units
+    self._gpu_for_layer = gpu_for_layer 
+    self._weight_initializer = weight_initializer
+    self._orthogonal_scale_factor = orthogonal_scale_factor
+
+
+  @property
+  def input_size(self):
+    return self._num_units
+
+  @property
+  def output_size(self):
+    return self._num_units
+
+  @property
+  def state_size(self):
+    return self._num_units
+
+  def __call__(self, inputs, state, scope=None):
+    """Most basic RNN: output = new_state = tanh(W * input + U * state + B)."""
+    with tf.device("/gpu:"+str(self._gpu_for_layer)):
+      with tf.variable_scope(scope or type(self).__name__):  # "BasicRNNCell"
+        output = tf.tanh(lfe.linear_enhanced([inputs, state], self._num_units, True, weight_initializer = self._weight_initializer, orthogonal_scale_factor = self._orthogonal_scale_factor))
       return output, output
 
 
 class UnitaryRNNCell(RNNCell):
   """Unitary RNN from Paper: http://arxiv.org/pdf/1511.06464v1.pdf"""
 
-  def __init__(self, num_units, gpu_for_layer = 0, weight_initializer = "uniform_unit"):
+  def __init__(self, num_units, gpu_for_layer = 0, weight_initializer = "uniform_unit", orthogonal_scale_factor = 1.1):
     self._num_units = num_units
     self._gpu_for_layer = gpu_for_layer 
     self._weight_initializer = weight_initializer
+    self._orthogonal_scale_factor = orthogonal_scale_factor
   
 
   @property #why is the input and output size the num_units? 
@@ -261,10 +297,11 @@ class UnitaryRNNCell(RNNCell):
 class JZS1Cell(RNNCell):
   """Mutant 1 of the following paper: http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf"""
 
-  def __init__(self, num_units, gpu_for_layer = 0, weight_initializer = "uniform_unit"):
+  def __init__(self, num_units, gpu_for_layer = 0, weight_initializer = "uniform_unit", orthogonal_scale_factor = 1.1):
     self._num_units = num_units
     self._gpu_for_layer = gpu_for_layer 
     self._weight_initializer = weight_initializer
+    self._orthogonal_scale_factor = orthogonal_scale_factor
 
   @property
   def input_size(self):
@@ -287,13 +324,13 @@ class JZS1Cell(RNNCell):
           '''equation 1 z = sigm(WxzXt+Bz), x_t is inputs'''
 
           z = tf.sigmoid(lfe.enhanced_linear([inputs], 
-                            self._num_units, True, 1.0, weight_initializer = self._weight_initializer)) 
+                            self._num_units, True, 1.0, weight_initializer = self._weight_initializer, orthogonal_scale_factor = self._orthogonal_scale_factor)) 
 
         with tf.variable_scope("Rinput"):
           '''equation 2 r = sigm(WxrXt+Whrht+Br), h_t is the previous state'''
 
           r = tf.sigmoid(lfe.enhanced_linear([inputs,state],
-                            self._num_units, True, 1.0, weight_initializer = self._weight_initializer))
+                            self._num_units, True, 1.0, weight_initializer = self._weight_initializer, orthogonal_scale_factor = self._orthogonal_scale_factor))
           '''equation 3'''
         with tf.variable_scope("Candidate"):
           component_0 = linear.linear([r*state], 
@@ -311,10 +348,11 @@ class JZS1Cell(RNNCell):
 class JZS2Cell(RNNCell):
   """Mutant 2 of the following paper: http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf"""
 
-  def __init__(self, num_units, gpu_for_layer = 0, weight_initializer = "uniform_unit"):
+  def __init__(self, num_units, gpu_for_layer = 0, weight_initializer = "uniform_unit", orthogonal_scale_factor = 1.1):
     self._num_units = num_units
     self._gpu_for_layer = gpu_for_layer 
     self._weight_initializer = weight_initializer
+    self._orthogonal_scale_factor = orthogonal_scale_factor
 
   @property
   def input_size(self):
@@ -336,12 +374,12 @@ class JZS2Cell(RNNCell):
           '''equation 1'''
 
           z = tf.sigmoid(lfe.enhanced_linear([inputs, state], 
-                            self._num_units, True, 1.0, weight_initializer = self._weight_initializer))
+                            self._num_units, True, 1.0, weight_initializer = self._weight_initializer, orthogonal_scale_factor = self._orthogonal_scale_factor))
 
           '''equation 2 '''
         with tf.variable_scope("Rinput"):
           r = tf.sigmoid(inputs+(lfe.enhanced_linear([state],
-                            self._num_units, True, 1.0, weight_initializer = self._weight_initializer)))
+                            self._num_units, True, 1.0, weight_initializer = self._weight_initializer, orthogonal_scale_factor = self._orthogonal_scale_factor)))
           '''equation 3'''
 
         with tf.variable_scope("Candidate"):
@@ -360,10 +398,11 @@ class JZS2Cell(RNNCell):
 class JZS3Cell(RNNCell):
   """Mutant 3 of the following paper: http://www.jmlr.org/proceedings/papers/v37/jozefowicz15.pdf"""
 
-  def __init__(self, num_units, gpu_for_layer = 0, weight_initializer = "uniform_unit"):
+  def __init__(self, num_units, gpu_for_layer = 0, weight_initializer = "uniform_unit", orthogonal_scale_factor = 1.1):
     self._num_units = num_units
     self._gpu_for_layer = gpu_for_layer 
     self._weight_initializer = weight_initializer
+    self._orthogonal_scale_factor = orthogonal_scale_factor
 
   @property
   def input_size(self):
@@ -386,12 +425,12 @@ class JZS3Cell(RNNCell):
           '''equation 1'''
 
           z = tf.sigmoid(lfe.enhanced_linear([inputs, tf.tanh(state)], 
-                            self._num_units, True, 1.0, weight_initializer = self._weight_initializer))
+                            self._num_units, True, 1.0, weight_initializer = self._weight_initializer, orthogonal_scale_factor = self._orthogonal_scale_factor))
 
           '''equation 2'''
         with tf.variable_scope("Rinput"):
           r = tf.sigmoid(lfe.enhanced_linear([inputs, state],
-                            self._num_units, True, 1.0, weight_initializer = self._weight_initializer))
+                            self._num_units, True, 1.0, weight_initializer = self._weight_initializer, orthogonal_scale_factor = self._orthogonal_scale_factor))
           '''equation 3'''
         with tf.variable_scope("Candidate"):
           component_0 = linear.linear([state*r,inputs],
@@ -410,10 +449,14 @@ class JZS3Cell(RNNCell):
 class GRUCell(RNNCell):
   """Gated Recurrent Unit cell (cf. http://arxiv.org/abs/1406.1078)."""
 
-  def __init__(self, num_units, gpu_for_layer = 0, weight_initializer = "uniform_unit"):
+  def __init__(self, num_units, gpu_for_layer = 0, weight_initializer = "uniform_unit", orthogonal_scale_factor = 1.1,
+    skip_connections = False, skip_neuron_number = 4):
     self._num_units = num_units
     self._gpu_for_layer = gpu_for_layer 
     self._weight_initializer = weight_initializer
+    self._orthogonal_scale_factor = orthogonal_scale_factor
+    self._skip_connections = skip_connections
+    self._skip_neuron_number = skip_neuron_number
 
 
   @property
@@ -431,21 +474,136 @@ class GRUCell(RNNCell):
   def __call__(self, inputs, state,scope=None):
     with tf.device("/gpu:"+str(self._gpu_for_layer)):
 
-      """Gated recurrent unit (GRU) with nunits cells."""
-      with tf.variable_scope(scope or type(self).__name__):  # "GRUCell"
-        with tf.variable_scope("Gates"):  # Reset gate and update gate.
-          # We start with bias of 1.0 to not reset and not udpate.
-          r, u = tf.split(1, 2, lfe.enhanced_linear([inputs, state],
-                                              2 * self._num_units, True, 1.0, weight_initializer = self._weight_initializer))
-          r, u = tf.sigmoid(r), tf.sigmoid(u)
-        with tf.variable_scope("Candidate"): #you need a different one because you're doing a new linear
-          #notice they have the activation/non-linear step right here! 
-          c = tf.tanh(linear.linear([inputs, r * state], self._num_units, True))
-        new_h = u * state + (1 - u) * c
-      return new_h, new_h
+      '''Modifying skip connections part -- Added Additional Input
 
-      '''nick, notice that for the gru, the output and the hidden state are literally the same thing'''
+      Nick, in the future, you can also add an additional hidden value input as well!'''
+      if self._skip_connections:
+        with tf.variable_scope("Skip_Connections"):
+          timestep_counter.assign(timestep_counter+1) #add one to timestep counter
+          print('for testing, you added one to the timestep_counter')
+          if tf.add_n(previous_inputs) == 0:
+            if previous_inputs.shape == 1:
+              previous_inputs.assign(tf.zeros(tf.shape(inputs)))
 
+          '''you have modified the gru network to incorporate the previous inputs'''
+          with tf.variable_scope(scope or type(self).__name__):  # "GRUCell"
+            with tf.variable_scope("Gates"):  # Reset gate and update gate.
+              # We start with bias of 1.0 to not reset and not udpate.
+              r, u = tf.split(1, 3, lfe.enhanced_linear([inputs, state, previous_inputs],
+                                                  3 * self._num_units, True, 1.0, weight_initializer = self._weight_initializer, orthogonal_scale_factor = self._orthogonal_scale_factor))
+              r, u, pr = tf.sigmoid(r), tf.sigmoid(u), tf.sigmoid(pr)
+            with tf.variable_scope("Candidate"): #you need a different one because you're doing a new linear
+              #notice they have the activation/non-linear step right here! 
+              c = tf.tanh(linear.linear([inputs, r * state, pr*state], self._num_units, True))
+            new_h = u * state + (1 - u) * c
+
+          '''need to update inputs if they are available'''  
+          if timestep_counter/skip_neuron_number == 0:
+            previous_inputs.assign(inputs)
+            print('you changed the previous inputs')
+            # previous_hidden_states.assign(new_h) #only activate if you need this 
+
+          return new_h, new_h
+
+          
+
+      else:
+        """Normal Gated recurrent unit (GRU) with nunits cells."""
+        with tf.variable_scope(scope or type(self).__name__):  # "GRUCell"
+          with tf.variable_scope("Gates"):  # Reset gate and update gate.
+            # We start with bias of 1.0 to not reset and not udpate.
+            r, u = tf.split(1, 2, lfe.enhanced_linear([inputs, state],
+                                                2 * self._num_units, True, 1.0, weight_initializer = self._weight_initializer, orthogonal_scale_factor = self._orthogonal_scale_factor))
+            r, u = tf.sigmoid(r), tf.sigmoid(u)
+          with tf.variable_scope("Candidate"): #you need a different one because you're doing a new linear
+            #notice they have the activation/non-linear step right here! 
+            c = tf.tanh(linear.linear([inputs, r * state], self._num_units, True))
+          new_h = u * state + (1 - u) * c
+        return new_h, new_h
+
+
+class GRUCell_InterConnect(RNNCell):
+  """This Second GRU Layer can take regular inputs and past timesGated Recurrent Unit cell (cf. http://arxiv.org/abs/1406.1078)."""
+  'It takes two inputs and one hidden state'
+  def __init__(self, num_units, gpu_for_layer = 0, weight_initializer = "uniform_unit", orthogonal_scale_factor = 1.1,
+    skip_connections = False, skip_neuron_number = 4):
+    self._num_units = num_units
+    self._gpu_for_layer = gpu_for_layer 
+    self._weight_initializer = weight_initializer
+    self._orthogonal_scale_factor = orthogonal_scale_factor
+    self._skip_connections = skip_connections
+    self._skip_neuron_number = skip_neuron_number
+
+
+  @property
+  def input_size(self):
+    return self._num_units
+
+  @property
+  def output_size(self):
+    return self._num_units
+
+  @property
+  def state_size(self):
+    return self._num_units
+
+  def __call__(self, inputs, state, past_inputs = None, past_states = None, scope=None):
+    with tf.device("/gpu:"+str(self._gpu_for_layer)):
+
+      '''This is a modified GRU that has the ability to incorporate an additional past input and/or 
+      additional past state. Very useful for skip-connecting RNN's horizontally or vertically. '''
+
+      if past_inputs is not None and past_states is None:
+
+          with tf.variable_scope(scope or type(self).__name__):  # "GRUCell"
+            with tf.variable_scope("Gates"):  # Reset gate and update gate.
+              r, u, pr = tf.split(1, 3, lfe.enhanced_linear([inputs, state, past_inputs],
+                                                  3 * self._num_units, True, 1.0, weight_initializer = self._weight_initializer, orthogonal_scale_factor = self._orthogonal_scale_factor))
+              r, u, pr = tf.sigmoid(r), tf.sigmoid(u), tf.sigmoid(pr)
+            with tf.variable_scope("Candidate"): #you need a different one because you're doing a new linear
+              c = tf.tanh(linear.linear([inputs, r * state, pr*state], self._num_units, True))
+            new_h = u * state + (1 - u) * c
+          return new_h, new_h
+
+      elif past_states is not None and past_inputs is None:
+
+          with tf.variable_scope(scope or type(self).__name__):  # "GRUCell"
+            with tf.variable_scope("Gates"):  # Reset gate and update gate.
+              r, u, ps = tf.split(1, 3, lfe.enhanced_linear([inputs, state, past_states],
+                                                  3 * self._num_units, True, 1.0, weight_initializer = self._weight_initializer, orthogonal_scale_factor = self._orthogonal_scale_factor))
+              r, u, ps = tf.sigmoid(r), tf.sigmoid(u), tf.sigmoid(ps)
+            with tf.variable_scope("Candidate"): #you need a different one because you're doing a new linear
+              c = tf.tanh(linear.linear([inputs, r * state], self._num_units, True))
+            new_h = u * state + (1 - u) * c + (1 - ps) * c
+          return new_h, new_h
+
+      elif past_states is not None and past_inputs is not None:
+
+          with tf.variable_scope(scope or type(self).__name__):  # "GRUCell"
+            with tf.variable_scope("Gates"):  # Reset gate and update gate.
+              r, u, pr, ps = tf.split(1, 4, lfe.enhanced_linear([inputs, state, past_inputs, past_states],
+                                                  4 * self._num_units, True, 1.0, weight_initializer = self._weight_initializer, orthogonal_scale_factor = self._orthogonal_scale_factor))
+              r, u, pr, ps = tf.sigmoid(r), tf.sigmoid(u), tf.sigmoid(pr), tf.sigmoid(ps)
+            with tf.variable_scope("Candidate"): #you need a different one because you're doing a new linear
+              c = tf.tanh(linear.linear([inputs, r * state, pr*state], self._num_units, True))
+            new_h = u * state + ps * past_states + (1 - u) * c + (1 - ps) * c
+          return new_h, new_h
+
+      else:
+          with tf.variable_scope(scope or type(self).__name__):  # "GRUCell"
+            with tf.variable_scope("Gates"):  # Reset gate and update gate.
+              # We start with bias of 1.0 to not reset and not udpate.
+              r, u = tf.split(1, 2, lfe.enhanced_linear([inputs, state],
+                                                  2 * self._num_units, True, 1.0, weight_initializer = self._weight_initializer, orthogonal_scale_factor = self._orthogonal_scale_factor))
+              r, u = tf.sigmoid(r), tf.sigmoid(u)
+            with tf.variable_scope("Candidate"): #you need a different one because you're doing a new linear
+              #notice they have the activation/non-linear step right here! 
+              c = tf.tanh(linear.linear([inputs, r * state], self._num_units, True))
+            new_h = u * state + (1 - u) * c
+          return new_h, new_h
+
+
+          
 
 class BasicLSTMCell(RNNCell):
   """Basic LSTM recurrent network cell.
@@ -459,10 +617,11 @@ class BasicLSTMCell(RNNCell):
   the scale of forgetting in the beginning of the training.
   """
 
-  def __init__(self, num_units, gpu_for_layer = 0, weight_initializer = "uniform_unit"):
+  def __init__(self, num_units, gpu_for_layer = 0, weight_initializer = "uniform_unit", orthogonal_scale_factor = 1.1):
     self._num_units = num_units
     self._gpu_for_layer = gpu_for_layer 
     self._weight_initializer = weight_initializer
+    self._orthogonal_scale_factor = orthogonal_scale_factor
 
 
   @property
@@ -483,7 +642,7 @@ class BasicLSTMCell(RNNCell):
       with tf.variable_scope(scope or type(self).__name__):  # "BasicLSTMCell"
         # Parameters of gates are concatenated into one multiply for efficiency.
         c, h = tf.split(1, 2, state)
-        concat = lfe.enhanced_linear([inputs, h], 4 * self._num_units, True, weight_initializer = self._weight_initializer)
+        concat = lfe.enhanced_linear([inputs, h], 4 * self._num_units, True, weight_initializer = self._weight_initializer, orthogonal_scale_factor = self._orthogonal_scale_factor)
 
         # i = input_gate, j = new_input, f = forget_gate, o = output_gate
         i, j, f, o = tf.split(1, 4, concat)
@@ -517,7 +676,7 @@ class LSTMCell(RNNCell):
                use_peepholes=False, cell_clip=None,
                initializer=None, num_proj=None,
                num_unit_shards=1, num_proj_shards=1,
-               gpu_for_layer = 0, weight_initializer = "uniform_unit"):
+               gpu_for_layer = 0, weight_initializer = "uniform_unit", orthogonal_scale_factor = 1.1):
     """Initialize the parameters for an LSTM cell.
 
     Args:
@@ -552,6 +711,7 @@ class LSTMCell(RNNCell):
     self._num_proj_shards = num_proj_shards
     self._gpu_for_layer = gpu_for_layer 
     self._weight_initializer = weight_initializer
+    self._orthogonal_scale_factor = orthogonal_scale_factor
 
     if (num_units * 4) % num_unit_shards != 0:
       raise ValueError("num_unit_shards must evently divide 4 * num_units")
@@ -672,6 +832,7 @@ class IdentityRNNCell(RNNCell):
     self._num_units = num_units
     self._gpu_for_layer = gpu_for_layer 
     self._weight_initializer = weight_initializer
+    self._orthogonal_scale_factor = orthogonal_scale_factor
 
 
   @property
@@ -803,7 +964,7 @@ class DropoutWrapper(RNNCell):
   """Operator adding dropout to inputs and outputs of the given cell."""
 
   def __init__(self, cell, input_keep_prob=1.0, output_keep_prob=1.0,
-               seed=None, gpu_for_layer = 0, weight_initializer = "uniform_unit"):
+               seed=None, gpu_for_layer = 0, weight_initializer = "uniform_unit", orthogonal_scale_factor = 1.1):
     """Create a cell with added input and/or output dropout.
 
     Dropout is never used on the state.
@@ -836,6 +997,7 @@ class DropoutWrapper(RNNCell):
     self._seed = seed
     self._gpu_for_layer = gpu_for_layer 
     self._weight_initializer = weight_initializer
+    self._orthogonal_scale_factor = orthogonal_scale_factor
 
   @property
   def input_size(self):
@@ -976,6 +1138,7 @@ class MultiRNNCell(RNNCell):
   def __call__(self, inputs, state, scope=None):
     """Run this multi-layer cell on inputs, starting from state."""
     with tf.variable_scope(scope or type(self).__name__):  # "MultiRNNCell"
+      #this loop is ran every timestep, so here we can do some serious connecting. 
       cur_state_pos = 0
       cur_inp = inputs
       new_states = []
@@ -983,6 +1146,98 @@ class MultiRNNCell(RNNCell):
         with tf.variable_scope("Cell%d" % i):
           cur_state = tf.slice(state, [0, cur_state_pos], [-1, cell.state_size])
           cur_state_pos += cell.state_size
-          cur_inp, new_state = cell(cur_inp, cur_state)
+          cur_inp, new_state = cell(cur_inp, cur_state) #this replaces cur_inp to a differen input
+          new_states.append(new_state)
+    return cur_inp, tf.concat(1, new_states) #along dimension 1, they are concatenating the new states. 
+
+class MultiRNNCell_Interconnect(RNNCell):
+  """RNN cell composed sequentially of multiple simple cells.
+
+  This class is made to interconnect RNN cells between layers. By this, you can directly pass hidden states 
+  and inputs from one unit to another unit vertically or horizontally."""
+
+  "In Graves Paper,http://arxiv.org/pdf/1507.01526v2.pdf, there is a combination of the hidden states "
+
+  def __init__(self, cells, vertically_pass_hidden_states = False,
+    vertically_pass_inputs = False,
+    layer_skip_number = 0):
+
+    """Create a RNN cell composed sequentially of a number of RNNCells.
+
+    Args:
+      cells: list of RNNCells that will be composed in this order.
+
+    Raises:
+      ValueError: if cells is empty (not allowed) or if their sizes don't match.
+    """
+    if not cells:
+      raise ValueError("Must specify at least one cell for MultiRNNCell.")
+    for i in xrange(len(cells) - 1): #this counts the number of cells total
+      if cells[i + 1].input_size != cells[i].output_size: #weird that they have this mismatch -- wonder why
+        raise ValueError("In MultiRNNCell, the input size of each next"
+                         " cell must match the output size of the previous one."
+                         " Mismatched output size in cell %d." % i)
+
+    if horizontally_pass_inputs and vertically_pass_inputs:
+      raise ValueError("You have opted to use both horizontal and vertically pass inputs."
+        "You must select only  one of these!")
+    if horizontally_pass_hidden_states and vertically_pass_hidden_states:
+      raise ValueError("You have opted to use both horizontal and vertically pass hidden states."
+        "You must select only one of these!")     
+
+    self._cells = cells
+    self._vertically_pass_hidden_states = vertically_pass_hidden_states
+    self._vertically_pass_inputs = vertically_pass_inputs
+    self._layer_skip_number = layer_skip_number
+
+  @property
+  def input_size(self):
+    return self._cells[0].input_size
+
+  @property
+  def output_size(self):
+    return self._cells[-1].output_size
+
+  @property
+  def state_size(self):
+    return sum([cell.state_size for cell in self._cells])
+
+  def __call__(self, inputs, state, scope=None):
+    """Run this multi-layer cell on inputs, starting from state."""
+    with tf.variable_scope(scope or type(self).__name__):  # "MultiRNNCell"
+      cur_state_pos = 0
+      cur_inp = inputs
+      new_states = []
+      total_number_of_layers = len(self._cells)
+      inp_queue = []
+      state_queue = []
+
+      for i, cell in enumerate(self._cells): #so here is a list of te cells
+        with tf.variable_scope("Cell%d" % i): #for each layer, we make a different variable scope
+          '''okay nick, the idea here is to add additional state and inputs!'''
+
+          cur_state = tf.slice(state, [0, cur_state_pos], [-1, cell.state_size])
+          cur_state_pos += cell.state_size
+          
+          if i > self._layer_skip_number:
+            # Remove from front of queue  
+            if self._vertically_pass_inputs:
+              past_inp = inp_queue.pop(0)
+            if self._vertically_pass_hidden_states:
+              past_state = state_queue.pop(0)
+          else:
+            past_inp = None
+            past_state = None
+
+          if i + self._layer_skip_number <= total_number_of_layers:
+            # Add to back of queue            
+            if self._vertically_pass_inputs:
+              inp_queue.append(cur_inp)
+            if self._vertically_pass_hidden_states:
+              state_queue.append(cur_state)
+
+          '''note, this is the actual command of the layer'''
+          cur_inp, new_state = cell(cur_inp, cur_state, past_inp, past_state)
+
           new_states.append(new_state)
     return cur_inp, tf.concat(1, new_states)

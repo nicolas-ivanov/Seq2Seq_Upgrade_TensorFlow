@@ -24,25 +24,8 @@ from rnn_enhancement import linear_functions_enhanced as lfe
 from rnn_enhancement import decoding_enhanced
 
 
-# def extract_argmax_and_embed(prev, _, output_projection, embedding, temperature_decode = False, temperature = 1.0): #placing this function here avoids re-compile time during training!
-#         """Loop_function that extracts the symbol from prev and embeds it."""
-#         if output_projection is not None:
-#           prev = tf.nn.xw_plus_b(prev, output_projection[0], output_projection[1])
-
-#         '''output prev of xw_plus_b is [batch_size x out_units]'''
-#         #this might be where you gotta do the sampling with temperature during decoding  
-#         if temperature_decode:
-#           prev_symbol = tf.stop_gradient(decoding_enhanced.batch_sample_with_temperature(prev, temperature))
-
-#         else:
-#           prev_symbol = tf.stop_gradient(tf.argmax(prev, dimension = 1))
-
-#         #be careful of batch sizing here nick!
-#         emb_prev = tf.nn.embedding_lookup(embedding, prev_symbol) #this reconverts it to the embedding I believe
-#         return emb_prev
-
 def average_hidden_states(decoder_states, average_hidden_state_influence = 0.5, name = None):
-  print('WARNING YOU ARE USING HIDDEN STATES LINE 45ISH========================================@@@@@@@@@@@@@@@@')
+  print('WARNING YOU ARE USING HIDDEN STATES')
   with tf.op_scope(decoder_states + average_hidden_state_influence, name, "average_hidden_states"):
     mean_decoder_states = tf.reduce_mean(decoder_states, 0) #nick double check the axis is right!
     final_decoder_state = tf.add((1 - average_hidden_state_influence) * decoder_states[-1], average_hidden_state_influence*mean_decoder_states)
@@ -144,7 +127,7 @@ def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
              for _ in xrange(num_heads)]
     for a in attns:  # Ensure the second shape of attention vectors is set.
       a.set_shape([None, attn_size])
-    for i in xrange(len(decoder_inputs)):
+    for i in xrange(len(decoder_inputs)): #RIGHT HERE! THIS IS A LIST OF DECODING TIMESTEPS! WHAAAAHOOOOO!!!!
       if i > 0:
         tf.get_variable_scope().reuse_variables()
       inp = decoder_inputs[i]
@@ -166,12 +149,18 @@ def attention_decoder(decoder_inputs, initial_state, attention_states, cell,
       hidden_state_input = states[-1]
       if average_states:
         '''implement averaging of states'''
-        print('WARNING YOU HAVE OPTED TO USE THE AVERAGING OF STATES!!!!!!!!!!!!!!!!!!!!!@@@@@@@@@@@')
+        print('WARNING YOU HAVE OPTED TO USE THE AVERAGING OF STATES!')
         hidden_state_input = average_hidden_states(states, average_hidden_state_influence) 
 
       # Run the RNN.
+
+      #right here, you could potentially make the skip-connections? I think you would have to 
+      #you would have to save the output part here, and then transfer it to the next part. 
       cell_output, new_state = cell(x, hidden_state_input) #nick, changed this to your hidden state input
       states.append(new_state)
+
+
+
       # Run the attention mechanism.
       attns = attention(new_state)
       with tf.variable_scope("AttnOutputProjection"):
@@ -238,14 +227,18 @@ def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,
       embedding = tf.get_variable("embedding", [num_symbols, cell.input_size])
 
 
-    def extract_argmax_and_embed(prev, _, temperature_decode = False, temperature = 1.0): #placing this function here avoids re-compile time during training!
+
+
+    loop_function = None
+    if feed_previous:
+      def extract_argmax_and_embed(prev, _, temperature_decode = False, temperature = 1.0): #placing this function here avoids re-compile time during training!
         """Loop_function that extracts the symbol from prev and embeds it."""
         if output_projection is not None:
           prev = tf.nn.xw_plus_b(prev, output_projection[0], output_projection[1])
         '''output prev of xw_plus_b is [batch_size x out_units]'''
         #this might be where you gotta do the sampling with temperature during decoding  
         if temperature_decode:
-          print('YOU ARE USING TEMPERATURE DECODING WARNING ---@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@2')
+          print('YOU ARE USING TEMPERATURE DECODING WARNING ---')
           prev_symbol = tf.stop_gradient(decoding_enhanced.batch_sample_with_temperature(prev, temperature))
         else:
           prev_symbol = tf.stop_gradient(tf.argmax(prev, 1))
@@ -253,8 +246,6 @@ def embedding_attention_decoder(decoder_inputs, initial_state, attention_states,
         emb_prev = tf.nn.embedding_lookup(embedding, prev_symbol) #this reconverts it to the embedding I believe
         return emb_prev
 
-    loop_function = None
-    if feed_previous:
       loop_function = extract_argmax_and_embed #oh wow they are literally passing a function right here....
 
     emb_inp = [tf.nn.embedding_lookup(embedding, i) for i in decoder_inputs]
@@ -336,6 +327,7 @@ def embedding_attention_seq2seq(encoder_inputs, decoder_inputs, cell,
     # Decoder.
     output_size = None
     if output_projection is None:
+      #right here they modify the outputprojectionwrapper
       cell = rnn_cell.OutputProjectionWrapper(cell, num_decoder_symbols)
       output_size = num_decoder_symbols
 
@@ -474,7 +466,7 @@ def sequence_loss(logits, targets, weights, num_decoder_symbols,
 def norm_stabilizer_loss(logits_to_normalize, norm_regularizer_factor = 50, name = None):
 
 
-  print('WARNING ------YOU HAVE OPTED TO USE NORM STABILIZER LOSS -------------------------------------------===================@@@@@@@@@@@@@@@@@@@')
+  print('WARNING ------YOU HAVE OPTED TO USE NORM STABILIZER LOSS -------------------------------')
   '''Will add a Norm Stabilizer Loss 
 
     Args:
@@ -490,42 +482,71 @@ def norm_stabilizer_loss(logits_to_normalize, norm_regularizer_factor = 50, name
   final_reg_loss: One Scalar Value representing the loss averaged across the batch'''
 
   with tf.op_scope(logits_to_normalize, name, "norm_stabilizer_loss"): #need to have this for tf to work
-    batch_size = tf.shape(logits_to_normalize[0])[0] #you choose the batch size number
+    batch_size = tf.shape(logits_to_normalize[0])[0] #you choose the batch size number -- this makes a tensor
 
-    squared_sum = tf.zeros((batch_size),tf.float32) #batch size in zeros
+    squared_sum = tf.zeros_like(batch_size,dtype = tf.float32) #batch size in zeros
     for q in xrange(len(logits_to_normalize)-1): #this represents the summation part from t to T
       '''one problem you're having right now is that you can't take the sqrt of negative number...you need to figure this out first
 
       You need to take the euclidean norm of the value -- can't find how to do this in tf....
 
       okay so Amn matrix means that the m is going down and n is going horizontal -- so we choose to reduce sum on axis 1 '''
-      difference = tf.sub(lfe.frobenius_norm(logits_to_normalize[q+1], reduction_indices = 1),lfe.frobenius_norm(logits_to_normalize[q], reduction_indices = 1))
+      difference = tf.sub(lfe.frobenius_norm(logits_to_normalize[q+1], reduction_indices = 1),
+              lfe.frobenius_norm(logits_to_normalize[q], reduction_indices = 1))
+
       '''the difference has the dimensions of [batch_size]'''
+      squared_sum = tf.add(squared_sum, tf.square(difference))
 
-      squared_sum = tf. add(squared_sum, tf.square(difference))
     #We want to average across batch sizes and divide by T
-    final_reg_loss = norm_regularizer_factor*(tf.add_n(squared_sum)/((len(logits_to_normalize))*(batch_size)))
-    return final_reg_loss
+    batch_size_times_len_logits = len(logits_to_normalize)*tf.to_float(batch_size)
 
-def rnn_l2_loss(logits_to_normalize, l2_loss_factor = 10, name = None):
 
-  '''Motivation from this loss function comes from: https://www.reddit.com/r/MachineLearning/comments/3uk2q5/151106464_unitary_evolution_recurrent_neural/
-  Specifically want to thank spurious_recollectio on reddit for discussing this suggestion with me '''
+    final_reg_loss = norm_regularizer_factor*(tf.reduce_sum(squared_sum))/batch_size_times_len_logits
+    #i think currently the problem right now is that this is returning an array rather than a number scalar
+  return final_reg_loss
 
-  '''Will add a L2 Loss linearly to the softmax cost function.
+def l1_orthogonal_regularizer(logits_to_normalize, l1_alpha_loss_factor = 10, name = None):
 
-    Args:
-  logits_to_normalize:This can be output logits or hidden states. The state of each decoder cell in each time-step. This is a list
-    with length len(decoder_inputs) -- one item for each time-step.
-    Each item is a 2D Tensor of shape [batch_size x cell.state_size] (or it can be [batch_size x output_logits])
+  '''Motivation from this loss function comes from: https://redd.it/3wx4sr
+  Specifically want to thank spurious_recollectio and harponen on reddit for discussing this suggestion to me '''
 
-  norm_regularizer_factor: The factor required to apply norm stabilization. Keep 
-    in mind that a larger factor will allow you to achieve a lower loss, but it will take
-    many more epochs to do so!
+  '''Will add a L1 Loss linearly to the softmax cost function.
+
 
     Returns:
   final_reg_loss: One Scalar Value representing the loss averaged across the batch'''
-  #normally get_variable sets the variable as trainable by default. 
+
+  '''this is different than unitary because it is an orthongonal matrix approximation -- it will 
+  suffer from timesteps longer than 500 and will take more computation power of O(n^3)'''
+
+  with tf.op_scope(logits_to_normalize, name, "rnn_l2_loss"): #need to have this for tf to work
+    
+    '''the l1 equation is: alpha * T.abs(T.dot(W, W.T) - (1.05) ** 2 * T.identity_like(W))'''
+    Weights_for_l1_loss = tf.get_variable("linear")
+
+    matrix_dot_product= tf.matmul(Weights_for_l1_loss, Weights_for_l1_loss, transpose_a = True)
+
+    #we need to check here that we have the right dimension -- should it be 0 or the 1 dim?
+    identity_matrix = lfe.identity_like(Weights_for_l1_loss)
+
+    matrix_minus_identity = matrix_dot_product - 2*1.05*identity_matrix
+
+    absolute_cost = tf.abs(matrix_minus_identity)
+    
+    final_l1_loss = l1_alpha_loss_factor*(absolute_cost/batch_size)
+
+  return final_l1_loss
+
+def l2_orthogonal_regularizer(logits_to_normalize, l2_alpha_loss_factor = 10, name = None):
+
+  '''Motivation from this loss function comes from: https://www.reddit.com/r/MachineLearning/comments/3uk2q5/151106464_unitary_evolution_recurrent_neural/
+  Specifically want to thank spurious_recollectio on reddit for discussing this suggestion to me '''
+
+  '''Will add a L2 Loss linearly to the softmax cost function.
+
+
+    Returns:
+  final_reg_loss: One Scalar Value representing the loss averaged across the batch'''
 
   '''this is different than unitary because it is an orthongonal matrix approximation -- it will 
   suffer from timesteps longer than 500 and will take more computation power of O(n^3)'''
@@ -533,11 +554,20 @@ def rnn_l2_loss(logits_to_normalize, l2_loss_factor = 10, name = None):
   with tf.op_scope(logits_to_normalize, name, "rnn_l2_loss"): #need to have this for tf to work
     
     '''somehow we need to get the Weights from the rnns right here....i don't know how! '''
+    '''the l1 equation is: alpha * T.abs(T.dot(W, W.T) - (1.05) ** 2 * T.identity_like(W))'''
+    '''The Equation of the Cost Is: loss += alpha * T.sum((T.dot(W, W.T) - (1.05)*2 T.identity_like(W)) * 2)'''
     Weights_for_l2_loss = tf.get_variable("linear")
 
-    matrix_dot_product= tf.sub(tf.matmul(Weights_for_l2_loss, Weights_for_l2_loss, transpose_b = True), 1)
+    matrix_dot_product= tf.matmul(Weights_for_l2_loss, Weights_for_l2_loss, transpose_a = True)
 
-    final_l2_loss = l2_loss_factor*(tf.add_n(matrix_dot_product)/(batch_size))
+    #we need to check here that we have the right dimension -- should it be 0 or the 1 dim?
+    identity_matrix = lfe.identity_like(Weights_for_l2_loss)
+
+    matrix_minus_identity = matrix_dot_product - 2*1.05*identity_matrix
+
+    square_the_loss = tf.square(matrix_minus_identity)
+
+    final_l2_loss = l2_alpha_loss_factor*(tf.reduce_sum(square_the_loss)/(batch_size))
   return final_l2_loss
 
 
@@ -595,7 +625,7 @@ def model_with_buckets(encoder_inputs, decoder_inputs, targets, weights,
                                for i in xrange(buckets[j][0])]
       bucket_decoder_inputs = [decoder_inputs[i]
                                for i in xrange(buckets[j][1])]
-      bucket_outputs, bucket_states = seq2seq(bucket_encoder_inputs,
+      bucket_outputs, bucket_states= seq2seq(bucket_encoder_inputs,
                                   bucket_decoder_inputs) #nick pay attention here -- you added bucket_states
       outputs.append(bucket_outputs)
 
@@ -606,11 +636,16 @@ def model_with_buckets(encoder_inputs, decoder_inputs, targets, weights,
       '''CALCULATE NORM REGULARIZE LOSS HERE'''
       final_reg_loss = 0
       if norm_regularize_hidden_states:
+        print('Warning -- You have opted to Use Norm Regularize Hidden States. Your Regularizer factor is:', norm_regularizer_factor)
         final_reg_loss = norm_stabilizer_loss(bucket_states, norm_regularizer_factor = norm_regularizer_factor)
       if norm_regularize_logits:
         final_reg_loss += norm_stabilizer_loss(bucket_outputs, norm_regularizer_factor = norm_regularizer_factor)
+        print('Warning -- You have opted to Use Norm Regularize Input Logits. Your Regularizer factor is:', norm_regularizer_factor)
       if apply_l2_loss:
         final_reg_loss += rnn_l2_loss(l2_loss_factor = l2_loss_factor)
+        print('Warning -- You have opted to Use RNN L2 Orthongonal Loss, Your Scaling factor is:', l2_loss_factor)
+
+
       losses.append(final_reg_loss + sequence_loss(
           outputs[-1], bucket_targets, bucket_weights, num_decoder_symbols,
           softmax_loss_function=softmax_loss_function))
