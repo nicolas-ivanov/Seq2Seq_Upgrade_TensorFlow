@@ -1,4 +1,7 @@
 # Project RNN Enhancement
+
+> *Note: the repository is not maintained. Feel free to PM me if you'd like to take up the maintainance.*
+
 Additional RNN and Sequence to Sequence Features for TensorFlow
 
 TensorFlow is great, but there are some RNN and Seq2Seq features that could be added. The goal is to add them as research in this field unfolds.
