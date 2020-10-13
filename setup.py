@@ -2,7 +2,7 @@ from setuptools import setup
 from setuptools import find_packages
 
 install_requires = [
-    'tensorflow==0.5.0'
+    'tensorflow==1.15.4'
 ]
 
 setup(
